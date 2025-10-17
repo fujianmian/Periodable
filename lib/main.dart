@@ -1,10 +1,12 @@
+// lib/main.dart
+
 // No changes to your imports, they are perfect.
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'dart:async'; // ✅ IMPROVEMENT: Import for the Timer
+import 'dart:async';
 import 'firebase_options.dart';
 import 'services/database_service.dart';
 import 'services/notification_service.dart';
@@ -20,6 +22,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
+import 'screens/auth/email_verification_screen.dart'; // Import the new screen
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -83,14 +86,11 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) => SettingsProvider()..init(),
         ),
-        // ✅ IMPROVEMENT: Simplified and safer ChangeNotifierProxyProvider
         ChangeNotifierProxyProvider<SettingsProvider, PeriodProvider>(
           create: (context) => PeriodProvider(
             context.read<SettingsProvider>(),
-          )..init(), // init() is only called here, once.
+          )..init(),
           update: (context, settings, previousPeriodProvider) {
-            // The previous provider is guaranteed to exist.
-            // Update its dependencies and return it.
             previousPeriodProvider!.updateDependencies(settings);
             return previousPeriodProvider;
           },
@@ -115,11 +115,12 @@ class MyApp extends StatelessWidget {
                 backgroundColor: Colors.transparent,
               ),
             ),
-            home: const AppRouter(),
+            home: const AppRouter(), // This remains the entry point
             routes: {
               '/login': (context) => const LoginScreen(),
               '/home': (context) => const MainScreen(),
               '/settings': (context) => const SettingsScreen(),
+              // You might need to add other routes like forgot-password if you have them
             },
             onGenerateRoute: (settings) {
               return MaterialPageRoute(
@@ -135,24 +136,58 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class AppRouter extends StatelessWidget {
+// ⭐ UPDATE: Converted to StatefulWidget to manage state synchronization
+class AppRouter extends StatefulWidget {
   const AppRouter({super.key});
+
+  @override
+  State<AppRouter> createState() => _AppRouterState();
+}
+
+class _AppRouterState extends State<AppRouter> {
+  // ⭐ CHANGE: Use didChangeDependencies to react to provider changes
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncUserEmail();
+  }
+
+  // ⭐ UPDATE: New method to synchronize the email
+  /// This method ensures that if a user is logged in, their email is
+  /// correctly stored in the SettingsProvider. This fixes the bug where
+  /// the premium check would fail on app startup.
+  void _syncUserEmail() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final settingsProvider =
+        Provider.of<SettingsProvider>(context, listen: false);
+
+    final user = authProvider.currentUser;
+    final storedEmail = settingsProvider.settings.userEmail;
+
+    // If user is logged in and the email is not yet stored in settings, update it.
+    if (user != null && user.email != null && user.email != storedEmail) {
+      debugPrint(
+          '[AppRouter] Syncing user email to SettingsProvider: ${user.email}');
+      // Use a post-frame callback to avoid calling setState during a build.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        settingsProvider.updateUserEmail(user.email!);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, _) {
-        // ✅ IMPROVEMENT: Show a loading screen during initial auth check
         if (authProvider.isLoading) {
           return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
+            body: Center(child: CircularProgressIndicator()),
           );
         }
 
         if (authProvider.isAuthenticated) {
           if (!authProvider.isEmailVerified) {
+            // Your existing email verification screen
             return EmailVerificationScreen(
               email: authProvider.currentUser?.email ?? '',
             );
@@ -160,120 +195,13 @@ class AppRouter extends StatelessWidget {
           return const MainScreen();
         }
 
-        // Default to login if not authenticated
         return const LoginScreen();
       },
     );
   }
 }
 
-// ✅ IMPROVEMENT: Converted to StatefulWidget for Timer management
-class EmailVerificationScreen extends StatefulWidget {
-  final String email;
-  const EmailVerificationScreen({super.key, required this.email});
-
-  @override
-  State<EmailVerificationScreen> createState() =>
-      _EmailVerificationScreenState();
-}
-
-class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    // Start a timer to check for verification every 5 seconds
-    _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      context.read<AuthProvider>().checkEmailVerified();
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel(); // Cancel the timer when the screen is disposed
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Verify Email'),
-        actions: [
-          // ✅ IMPROVEMENT: Add a sign out button
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              context.read<AuthProvider>().logout();
-            },
-          ),
-        ],
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'A verification email has been sent to ${widget.email}',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 20),
-              // Resend Button
-              Consumer<AuthProvider>(
-                builder: (context, authProvider, _) {
-                  return ElevatedButton(
-                    onPressed: authProvider.isLoading
-                        ? null
-                        : () async {
-                            await authProvider.sendEmailVerification();
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('Verification email sent')),
-                              );
-                            }
-                          },
-                    child: authProvider.isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Text('Resend Email'),
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              // "I have verified" is less critical now due to the timer, but can be kept for manual checks
-              TextButton(
-                  onPressed: () async {
-                    final isVerified =
-                        await context.read<AuthProvider>().checkEmailVerified();
-                    if (context.mounted && isVerified) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Email verified successfully!')),
-                      );
-                    } else if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Email not yet verified.')),
-                      );
-                    }
-                  },
-                  child: const Text("I've Verified, Check Now")),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// No changes needed for MainScreen, it's already well-implemented.
+// No changes needed for MainScreen
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
