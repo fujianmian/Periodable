@@ -2,7 +2,7 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
-        android:label="menstrual_cycle_tracker"
+        android:label="Periodable"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
