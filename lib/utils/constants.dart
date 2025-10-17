@@ -64,9 +64,9 @@ class AppConfig {
 
   // *** NEW: Gemini API Configuration ***
   static const String geminiApiKey =
-      'YOUR_GEMINI_API_KEY_HERE'; // Replace with your actual API key
+      'AIzaSyB249qfxJ3GsXXAXuRH6XlguHoy7elcXBE'; // Replace with your actual API key
   static const String geminiModel =
-      'gemini-1.5-flash'; // or 'gemini-1.5-pro' for better accuracy
+      'gemini-2.5-pro'; // or 'gemini-1.5-pro' for better accuracy
 
   // AI Prediction Settings
   static const bool useAIPrediction =

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "923922157431",
+    "project_id": "periodliable",
+    "storage_bucket": "periodliable.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:923922157431:android:21f1d4488ef185e9a55b72",
+        "android_client_info": {
+          "package_name": "com.example.menstrual_cycle_tracker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDLb952Cxdtj_rVHxrl0bh0mlTX_xbLjS0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

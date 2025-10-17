@@ -1,7 +1,10 @@
+// lib/screens/settings/settings_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/period_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../utils/constants.dart';
 import 'widgets/settings_section.dart';
 import 'widgets/settings_tiles.dart';
@@ -10,6 +13,14 @@ import 'widgets/dialogs/clear_data_dialog.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({Key? key}) : super(key: key);
+
+  // Define the allowed email for special features
+  static const String _allowedEmail = 'jun379e@gmail.com';
+
+  bool _isAllowedUser(AuthProvider authProvider) {
+    return authProvider.isAuthenticated &&
+        authProvider.currentUser?.email == _allowedEmail;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,10 +40,24 @@ class SettingsScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildAccountSection(context),
+            const SizedBox(height: 24),
             _buildNotificationsSection(context),
             const SizedBox(height: 24),
-            _buildAIPredictionSection(context),
-            const SizedBox(height: 24),
+            // Only show AI section if user is authenticated AND is the allowed email
+            Consumer<AuthProvider>(
+              builder: (context, authProvider, _) {
+                if (!_isAllowedUser(authProvider)) {
+                  return const SizedBox.shrink();
+                }
+                return Column(
+                  children: [
+                    _buildAIPredictionSection(context),
+                    const SizedBox(height: 24),
+                  ],
+                );
+              },
+            ),
             _buildDataManagementSection(context),
             const SizedBox(height: 24),
             _buildFeedbackSection(context),
@@ -45,76 +70,170 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildNotificationsSection(BuildContext context) {
-    return SettingsSection(
-      title: 'Notifications',
-      icon: Icons.notifications_outlined,
-      children: [
-        Consumer<SettingsProvider>(
-          builder: (context, settingsProvider, child) {
-            return SettingsTiles.buildSwitchTile(
-              title: 'Enable Reminders',
-              subtitle: 'Get notified before your period starts',
-              value: settingsProvider.notificationsEnabled,
-              onChanged: (value) {
-                settingsProvider.toggleNotifications(value);
-              },
-            );
-          },
-        ),
-        Consumer<SettingsProvider>(
-          builder: (context, settingsProvider, child) {
-            if (!settingsProvider.notificationsEnabled) {
-              return const SizedBox.shrink();
-            }
-            return SettingsTiles.buildSliderTile(
-              title: 'Reminder Days Before',
-              subtitle:
-                  'Remind me ${settingsProvider.reminderDaysBefore} ${settingsProvider.reminderDaysBefore == 1 ? 'day' : 'days'} before',
-              value: settingsProvider.reminderDaysBefore.toDouble(),
-              min: 1,
-              max: 7,
-              divisions: 6,
-              onChanged: (value) {
-                settingsProvider.updateReminderDays(value.round());
-              },
-            );
-          },
-        ),
-        Consumer<SettingsProvider>(
-          builder: (context, settingsProvider, child) {
-            return SettingsTiles.buildActionTile(
-              title: 'Test Notification',
-              subtitle: 'Send a test notification now',
-              icon: Icons.send,
-              onTap: () async {
-                try {
-                  await settingsProvider.testNotification();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Test notification sent!'),
+  Widget _buildAccountSection(BuildContext context) {
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, _) {
+        return SettingsSection(
+          title: 'Account',
+          icon: Icons.account_circle_outlined,
+          children: [
+            if (authProvider.isAuthenticated) ...[
+              SettingsTiles.buildInfoTile(
+                title: 'Email',
+                subtitle: authProvider.currentUser?.email ?? 'Unknown',
+                icon: Icons.email_outlined,
+              ),
+              SettingsTiles.buildActionTile(
+                title: 'Logout',
+                subtitle: 'Sign out of your account',
+                icon: Icons.logout,
+                iconColor: Colors.red,
+                onTap: () async {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Logout'),
+                      content: const Text('Are you sure you want to logout?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Cancel'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                          ),
+                          child: const Text('Logout'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirmed ?? false) {
+                    await authProvider.logout();
+                  }
+                },
+              ),
+            ] else ...[
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.lock_outline,
+                      size: 48,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Not Logged In',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Login to unlock AI predictions and sync across devices',
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.caption,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/login');
+                      },
+                      style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
-                        behavior: SnackBarBehavior.floating,
                       ),
-                    );
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Error: $e'),
-                        backgroundColor: Colors.red,
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  }
-                }
+                      child: const Text('Login Now'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildNotificationsSection(BuildContext context) {
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, _) {
+        return SettingsSection(
+          title: 'Notifications',
+          icon: Icons.notifications_outlined,
+          children: [
+            Consumer<SettingsProvider>(
+              builder: (context, settingsProvider, child) {
+                return SettingsTiles.buildSwitchTile(
+                  title: 'Enable Reminders',
+                  subtitle: 'Get notified before your period starts',
+                  value: settingsProvider.notificationsEnabled,
+                  onChanged: (value) {
+                    settingsProvider.toggleNotifications(value);
+                  },
+                );
               },
-            );
-          },
-        ),
-      ],
+            ),
+            Consumer<SettingsProvider>(
+              builder: (context, settingsProvider, child) {
+                if (!settingsProvider.notificationsEnabled) {
+                  return const SizedBox.shrink();
+                }
+                return SettingsTiles.buildSliderTile(
+                  title: 'Reminder Days Before',
+                  subtitle:
+                      'Remind me ${settingsProvider.reminderDaysBefore} ${settingsProvider.reminderDaysBefore == 1 ? 'day' : 'days'} before',
+                  value: settingsProvider.reminderDaysBefore.toDouble(),
+                  min: 1,
+                  max: 7,
+                  divisions: 6,
+                  onChanged: (value) {
+                    settingsProvider.updateReminderDays(value.round());
+                  },
+                );
+              },
+            ),
+            // Only show Test Notification for allowed user
+            if (_isAllowedUser(authProvider))
+              Consumer<SettingsProvider>(
+                builder: (context, settingsProvider, child) {
+                  return SettingsTiles.buildActionTile(
+                    title: 'Test Notification',
+                    subtitle: 'Send a test notification now',
+                    icon: Icons.send,
+                    onTap: () async {
+                      try {
+                        await settingsProvider.testNotification();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Test notification sent!'),
+                              backgroundColor: AppColors.primary,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error: $e'),
+                              backgroundColor: Colors.red,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      }
+                    },
+                  );
+                },
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -177,59 +296,67 @@ class SettingsScreen extends StatelessWidget {
   }
 
   Widget _buildDataManagementSection(BuildContext context) {
-    return SettingsSection(
-      title: 'Data Management',
-      icon: Icons.storage_outlined,
-      children: [
-        Consumer<PeriodProvider>(
-          builder: (context, periodProvider, child) {
-            final stats = periodProvider.getStatistics();
-            return SettingsTiles.buildInfoTile(
-              title: 'Total Period Logs',
-              subtitle: '${stats['totalLogs']} entries',
-              icon: Icons.event_note,
-            );
-          },
-        ),
-        SettingsTiles.buildActionTile(
-          title: 'Recalculate Prediction',
-          subtitle: 'Manually update cycle prediction',
-          icon: Icons.refresh,
-          onTap: () async {
-            try {
-              await context.read<PeriodProvider>().recalculatePrediction();
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Prediction recalculated!'),
-                    backgroundColor: AppColors.primary,
-                    behavior: SnackBarBehavior.floating,
-                  ),
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, _) {
+        return SettingsSection(
+          title: 'Data Management',
+          icon: Icons.storage_outlined,
+          children: [
+            Consumer<PeriodProvider>(
+              builder: (context, periodProvider, child) {
+                final stats = periodProvider.getStatistics();
+                return SettingsTiles.buildInfoTile(
+                  title: 'Total Period Logs',
+                  subtitle: '${stats['totalLogs']} entries',
+                  icon: Icons.event_note,
                 );
-              }
-            } catch (e) {
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Error: $e'),
-                    backgroundColor: Colors.red,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              }
-            }
-          },
-        ),
-        SettingsTiles.buildActionTile(
-          title: 'Clear All Data',
-          subtitle: 'Delete all period logs and predictions',
-          icon: Icons.delete_forever,
-          iconColor: Colors.red,
-          onTap: () {
-            ClearDataDialog.show(context);
-          },
-        ),
-      ],
+              },
+            ),
+            // Only show Recalculate Prediction for allowed user
+            if (_isAllowedUser(authProvider))
+              SettingsTiles.buildActionTile(
+                title: 'Recalculate Prediction',
+                subtitle: 'Manually update cycle prediction',
+                icon: Icons.refresh,
+                onTap: () async {
+                  try {
+                    await context
+                        .read<PeriodProvider>()
+                        .recalculatePrediction();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Prediction recalculated!'),
+                          backgroundColor: AppColors.primary,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error: $e'),
+                          backgroundColor: Colors.red,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  }
+                },
+              ),
+            SettingsTiles.buildActionTile(
+              title: 'Clear All Data',
+              subtitle: 'Delete all period logs and predictions',
+              icon: Icons.delete_forever,
+              iconColor: Colors.red,
+              onTap: () {
+                ClearDataDialog.show(context);
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 

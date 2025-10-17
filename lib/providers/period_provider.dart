@@ -12,7 +12,7 @@ class PeriodProvider extends ChangeNotifier {
   final DatabaseService _databaseService = DatabaseService();
   final PredictionService _predictionService = PredictionService();
   final NotificationService _notificationService = NotificationService();
-  final SettingsProvider _settingsProvider;
+  SettingsProvider _settingsProvider;
 
   List<PeriodLog> _periodLogs = [];
   PredictionData? _currentPrediction;
@@ -26,6 +26,13 @@ class PeriodProvider extends ChangeNotifier {
   PredictionData? get currentPrediction => _currentPrediction;
   bool get isLoading => _isLoading;
   String? get error => _error;
+
+  void updateDependencies(SettingsProvider newSettingsProvider) {
+    _settingsProvider = newSettingsProvider;
+    // Add any logic here that needs to re-run when settings change
+    // For example, you might want to recalculate predictions
+    // notifyListeners(); // Call this if the update changes the UI
+  }
 
   // Get logs in chronological order
   List<PeriodLog> get chronologicalLogs {

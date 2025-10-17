@@ -22,6 +22,9 @@ class PredictionData extends HiveObject {
   @HiveField(5)
   int? maxCycle; // Optional: maximum cycle length observed
 
+  @HiveField(5)
+  int? reasoning;
+
   PredictionData({
     required this.predictedDate,
     required this.averageCycleLength,
@@ -29,6 +32,7 @@ class PredictionData extends HiveObject {
     required this.calculatedAt,
     this.minCycle,
     this.maxCycle,
+    this.reasoning,
   });
 
   // Get prediction range (±2 days)
@@ -56,6 +60,7 @@ class PredictionData extends HiveObject {
       'calculatedAt': calculatedAt.toIso8601String(),
       'minCycle': minCycle,
       'maxCycle': maxCycle,
+      'reasoning': reasoning,
     };
   }
 
@@ -67,6 +72,7 @@ class PredictionData extends HiveObject {
       calculatedAt: DateTime.parse(json['calculatedAt']),
       minCycle: json['minCycle'],
       maxCycle: json['maxCycle'],
+      reasoning: json['reasoning'],
     );
   }
 
