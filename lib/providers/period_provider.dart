@@ -1,6 +1,9 @@
+// lib/providers/period_provider.dart
+
 import 'package:flutter/foundation.dart';
 import '../models/period_log.dart';
 import '../models/prediction_data.dart';
+import '../models/app_settings.dart'; // Import AppSettings
 import '../services/database_service.dart';
 import '../services/prediction_service.dart';
 import '../services/notification_service.dart';
@@ -29,51 +32,41 @@ class PeriodProvider extends ChangeNotifier {
 
   void updateDependencies(SettingsProvider newSettingsProvider) {
     _settingsProvider = newSettingsProvider;
-    // Add any logic here that needs to re-run when settings change
-    // For example, you might want to recalculate predictions
-    // notifyListeners(); // Call this if the update changes the UI
   }
 
-  // Get logs in chronological order
   List<PeriodLog> get chronologicalLogs {
     final logs = List<PeriodLog>.from(_periodLogs);
     logs.sort((a, b) => a.startDate.compareTo(b.startDate));
     return logs;
   }
 
-  // Get most recent log
   PeriodLog? get lastLog => _periodLogs.isNotEmpty ? _periodLogs.first : null;
 
-  /// Initialize - load data from database
   Future<void> init() async {
     try {
       _isLoading = true;
       notifyListeners();
-
       _periodLogs = _databaseService.getAllPeriodLogs();
       _currentPrediction = _databaseService.getLatestPrediction();
-
       developer.log(
-          'Period provider initialized: ${_periodLogs.length} logs loaded');
-
+          '[PeriodProvider] Initialized: ${_periodLogs.length} logs loaded.');
       _isLoading = false;
       notifyListeners();
     } catch (e) {
       _error = 'Failed to load data: $e';
       _isLoading = false;
-      developer.log('Error initializing period provider: $e');
+      developer.log('[PeriodProvider] Error initializing: $e');
       notifyListeners();
     }
   }
 
-  /// Add a new period log
+  // ... [Keep addPeriodLog, updatePeriodLog, deletePeriodLog, etc. the same]
   Future<void> addPeriodLog(DateTime date) async {
     try {
       _isLoading = true;
       _error = null;
       notifyListeners();
 
-      // Check if log already exists for this date
       final existingLog = _databaseService.getPeriodLogByDate(date);
       if (existingLog != null) {
         _error = 'A period log already exists for this date';
@@ -82,23 +75,16 @@ class PeriodProvider extends ChangeNotifier {
         return;
       }
 
-      // Create new log
       final log = PeriodLog(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         startDate: DateHelpers.startOfDay(date),
         createdAt: DateTime.now(),
       );
 
-      // Save to database
       await _databaseService.addPeriodLog(log);
-
-      // Reload logs
       _periodLogs = _databaseService.getAllPeriodLogs();
-
       developer.log('Period log added for ${DateHelpers.formatLongDate(date)}');
-
-      // Recalculate prediction
-      await _updatePrediction();
+      await recalculatePrediction();
 
       _isLoading = false;
       notifyListeners();
@@ -111,7 +97,60 @@ class PeriodProvider extends ChangeNotifier {
     }
   }
 
-  /// Update an existing period log
+  /// Manually recalculate prediction
+  Future<void> recalculatePrediction({AppSettings? updatedSettings}) async {
+    try {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+
+      if (_periodLogs.isEmpty) {
+        developer.log(
+            '[PeriodProvider] Recalculation skipped: No period logs available.');
+        _isLoading = false;
+        notifyListeners();
+        return;
+      }
+
+      // Use the provided updated settings if available, otherwise use the existing ones.
+      final settingsToUse = updatedSettings ?? _settingsProvider.settings;
+
+      developer.log('[PeriodProvider] Force recalculating prediction...');
+      developer.log(
+          '[PeriodProvider] Settings being used for prediction: userEmail=${settingsToUse.userEmail}, useAI=${settingsToUse.useAIPrediction}');
+
+      final prediction = await _predictionService.predictNextPeriod(
+        chronologicalLogs,
+        settingsToUse, // Pass the correct settings object
+      );
+
+      await _databaseService.savePrediction(prediction);
+      _currentPrediction = prediction;
+
+      developer.log(
+          '[PeriodProvider] New prediction saved: ${DateHelpers.formatLongDate(prediction.predictedDate)}');
+
+      if (_settingsProvider.notificationsEnabled) {
+        await _notificationService.scheduleReminder(
+          prediction,
+          _settingsProvider.reminderDaysBefore,
+        );
+        developer.log(
+            '[PeriodProvider] Reminder scheduled for ${_settingsProvider.reminderDaysBefore} days before');
+      }
+
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _error = 'Failed to recalculate prediction: $e';
+      _isLoading = false;
+      developer.log('[PeriodProvider] Error recalculating prediction: $e');
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  // ... [Keep all other methods the same]
   Future<void> updatePeriodLog(PeriodLog log) async {
     try {
       _isLoading = true;
@@ -122,9 +161,7 @@ class PeriodProvider extends ChangeNotifier {
       _periodLogs = _databaseService.getAllPeriodLogs();
 
       developer.log('Period log updated: ${log.id}');
-
-      // Recalculate prediction
-      await _updatePrediction();
+      await recalculatePrediction();
 
       _isLoading = false;
       notifyListeners();
@@ -137,7 +174,6 @@ class PeriodProvider extends ChangeNotifier {
     }
   }
 
-  /// Delete a period log
   Future<void> deletePeriodLog(String id) async {
     try {
       _isLoading = true;
@@ -148,9 +184,7 @@ class PeriodProvider extends ChangeNotifier {
       _periodLogs = _databaseService.getAllPeriodLogs();
 
       developer.log('Period log deleted: $id');
-
-      // Recalculate prediction
-      await _updatePrediction();
+      await recalculatePrediction();
 
       _isLoading = false;
       notifyListeners();
@@ -163,12 +197,10 @@ class PeriodProvider extends ChangeNotifier {
     }
   }
 
-  /// Check if a date has a logged period
   bool hasLogOnDate(DateTime date) {
     return _periodLogs.any((log) => DateHelpers.isSameDay(log.startDate, date));
   }
 
-  /// Get log for a specific date
   PeriodLog? getLogForDate(DateTime date) {
     try {
       return _periodLogs.firstWhere(
@@ -179,132 +211,26 @@ class PeriodProvider extends ChangeNotifier {
     }
   }
 
-  /// Update prediction (calculate new prediction and schedule notification)
-  Future<void> _updatePrediction() async {
-    try {
-      if (_periodLogs.isEmpty) {
-        _currentPrediction = null;
-        await _databaseService.deletePrediction();
-        await _notificationService.cancelAllReminders();
-        developer.log('No logs available, prediction cleared');
-        return;
-      }
-
-      // Check if recalculation is needed
-      if (!_predictionService.shouldRecalculate(
-          _currentPrediction, _periodLogs)) {
-        developer.log('Prediction is still valid, skipping recalculation');
-        return;
-      }
-
-      developer.log('Calculating new prediction...');
-
-      // Calculate new prediction
-      final prediction = await _predictionService.predictNextPeriod(
-        chronologicalLogs,
-        _settingsProvider.settings,
-      );
-
-      // Save prediction
-      await _databaseService.savePrediction(prediction);
-      _currentPrediction = prediction;
-
-      developer.log(
-          'New prediction: ${DateHelpers.formatLongDate(prediction.predictedDate)}');
-
-      // Schedule notification if enabled
-      if (_settingsProvider.notificationsEnabled) {
-        await _notificationService.scheduleReminder(
-          prediction,
-          _settingsProvider.reminderDaysBefore,
-        );
-        developer.log(
-            'Reminder scheduled for ${_settingsProvider.reminderDaysBefore} days before');
-      }
-    } catch (e) {
-      developer.log('Error updating prediction: $e');
-    }
-  }
-
-  /// Manually recalculate prediction
-  Future<void> recalculatePrediction() async {
-    try {
-      _isLoading = true;
-      _error = null;
-      notifyListeners();
-
-      if (_periodLogs.isEmpty) {
-        _error = 'No period logs available for prediction';
-        _isLoading = false;
-        notifyListeners();
-        return;
-      }
-
-      developer.log('Force recalculating prediction...');
-
-      // Directly call predictNextPeriod, bypassing shouldRecalculate check
-      final prediction = await _predictionService.predictNextPeriod(
-        chronologicalLogs,
-        _settingsProvider.settings,
-      );
-
-      // Save prediction
-      await _databaseService.savePrediction(prediction);
-      _currentPrediction = prediction;
-
-      developer.log(
-          'New prediction: ${DateHelpers.formatLongDate(prediction.predictedDate)}');
-
-      // Schedule notification if enabled
-      if (_settingsProvider.notificationsEnabled) {
-        await _notificationService.scheduleReminder(
-          prediction,
-          _settingsProvider.reminderDaysBefore,
-        );
-        developer.log(
-            'Reminder scheduled for ${_settingsProvider.reminderDaysBefore} days before');
-      }
-
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _error = 'Failed to recalculate prediction: $e';
-      _isLoading = false;
-      developer.log('Error recalculating prediction: $e');
-      notifyListeners();
-      rethrow;
-    }
-  }
-
-  /// Get cycle statistics
   Map<String, dynamic>? getCycleStats() {
     return _predictionService.calculateCycleStats(chronologicalLogs);
   }
 
-  /// Get days until next predicted period
   int? getDaysUntilNextPeriod() {
     if (_currentPrediction == null) return null;
     return DateHelpers.daysUntil(_currentPrediction!.predictedDate);
   }
 
-  /// Check if predicted date is in range (within ±2 days of a date)
   bool isPredictedDate(DateTime date) {
     if (_currentPrediction == null) return false;
-
-    final daysFromPredicted = DateHelpers.daysBetween(
-      _currentPrediction!.predictedDate,
-      date,
-    ).abs();
-
+    final daysFromPredicted =
+        DateHelpers.daysBetween(_currentPrediction!.predictedDate, date).abs();
     return daysFromPredicted <= 2;
   }
 
-  /// Get database statistics
   Map<String, dynamic> getStatistics() {
     return _databaseService.getStatistics();
   }
 
-  /// Clear all data
   Future<void> clearAllData() async {
     try {
       _isLoading = true;
@@ -330,12 +256,10 @@ class PeriodProvider extends ChangeNotifier {
     }
   }
 
-  /// Export data as JSON
   Map<String, dynamic> exportData() {
     return _databaseService.exportData();
   }
 
-  /// Import data from JSON
   Future<void> importData(Map<String, dynamic> data) async {
     try {
       _isLoading = true;
@@ -343,8 +267,6 @@ class PeriodProvider extends ChangeNotifier {
       notifyListeners();
 
       await _databaseService.importData(data);
-
-      // Reload everything
       await init();
 
       developer.log('Data imported successfully');
@@ -360,7 +282,6 @@ class PeriodProvider extends ChangeNotifier {
     }
   }
 
-  /// Test Gemini API connection
   Future<bool> testGeminiConnection() async {
     try {
       return await _predictionService.testGeminiConnection();
@@ -370,7 +291,6 @@ class PeriodProvider extends ChangeNotifier {
     }
   }
 
-  /// Refresh data from database
   Future<void> refresh() async {
     await init();
   }

@@ -17,8 +17,10 @@ class GeminiService {
 
   /// Predict next period date using Gemini AI (ALWAYS uses AI, no fallback)
   Future<Map<String, dynamic>?> predictNextPeriod(List<PeriodLog> logs) async {
+    developer.log('[GeminiService] predictNextPeriod has been called.');
+
     if (logs.isEmpty) {
-      developer.log('No logs available for AI prediction');
+      developer.log('[GeminiService] No logs available for AI prediction.');
       return null;
     }
 
@@ -29,35 +31,37 @@ class GeminiService {
       // Build the prompt
       final prompt = _buildPrompt(logs);
 
-      developer.log('Sending prompt to Gemini API for AI prediction...');
+      developer.log('[GeminiService] Sending prompt to Gemini API...');
+      developer.log('[GeminiService] PROMPT:\n$prompt'); // Log the full prompt
 
       // Call Gemini API
       final response = await _model.generateContent([Content.text(prompt)]);
 
       if (response.text == null || response.text!.isEmpty) {
-        developer.log('Empty response from Gemini API');
+        developer.log('[GeminiService] Empty response from Gemini API');
         return null;
       }
 
-      developer.log('Gemini AI response received: ${response.text}');
+      developer
+          .log('[GeminiService] Gemini AI response received: ${response.text}');
 
       // Parse the response
       final result = _parseGeminiResponse(response.text!, logs.last.startDate);
 
       if (result != null) {
-        developer.log('AI prediction successfully generated: $result');
+        developer.log(
+            '[GeminiService] AI prediction successfully generated: $result');
       }
 
       return result;
     } catch (e) {
-      developer.log('Error calling Gemini API: $e');
+      developer.log('[GeminiService] Error calling Gemini API: $e');
       rethrow; // Let caller handle the error
     }
   }
 
-  /// Build the prompt for Gemini with clear AI prediction instructions
+  // ... [Keep the rest of the file the same]
   String _buildPrompt(List<PeriodLog> logs) {
-    // Format the cycle data
     StringBuffer cycleData = StringBuffer();
     List<int> cycleLengths = [];
 
@@ -75,7 +79,6 @@ class GeminiService {
       cycleData.write('\n');
     }
 
-    // Calculate stats to give AI context
     double averageCycle = cycleLengths.isEmpty
         ? 28.0
         : cycleLengths.reduce((a, b) => a + b) / cycleLengths.length;
@@ -121,16 +124,12 @@ Generate the prediction now:
 ''';
   }
 
-  /// Parse Gemini's JSON response - handles various response formats
   Map<String, dynamic>? _parseGeminiResponse(
       String responseText, DateTime lastPeriodDate) {
     try {
       developer.log('Parsing Gemini response: $responseText');
-
-      // Clean the response
       String cleanedText = responseText.trim();
 
-      // Remove markdown code blocks if present
       if (cleanedText.contains('```json')) {
         cleanedText = cleanedText.replaceAll(RegExp(r'```json\n?'), '');
       }
@@ -139,8 +138,6 @@ Generate the prediction now:
       }
 
       cleanedText = cleanedText.trim();
-
-      // Find JSON object
       final jsonStart = cleanedText.indexOf('{');
       final jsonEnd = cleanedText.lastIndexOf('}');
 
@@ -151,8 +148,6 @@ Generate the prediction now:
 
       final jsonString = cleanedText.substring(jsonStart, jsonEnd + 1);
       developer.log('Extracted JSON: $jsonString');
-
-      // Extract fields using regex
       final predictedDateMatch =
           RegExp(r'"predicted_date"\s*:\s*"([^"]+)"').firstMatch(jsonString);
       final avgCycleMatch =
@@ -177,7 +172,6 @@ Generate the prediction now:
       final confidence = double.parse(confidenceMatch.group(1)!);
       final reasoning = reasoningMatch?.group(1) ?? 'AI-generated prediction';
 
-      // Validate prediction is reasonable
       final daysSinceLastPeriod =
           predictedDate.difference(lastPeriodDate).inDays;
 
@@ -206,7 +200,6 @@ Generate the prediction now:
     }
   }
 
-  /// Test if Gemini API key is working
   Future<bool> testConnection() async {
     try {
       developer.log('Testing Gemini API connection...');

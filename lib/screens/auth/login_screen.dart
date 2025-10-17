@@ -1,8 +1,12 @@
+// lib/screens/auth/login_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/period_provider.dart';
 import '../../utils/constants.dart';
 import '../../providers/settings_provider.dart';
+import 'dart:developer' as developer;
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -62,6 +66,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  // ... [Keep all the _build... methods the same]
   Widget _buildHeader() {
     return Column(
       children: [
@@ -263,7 +268,6 @@ class _LoginScreenState extends State<LoginScreen> {
           _emailController.clear();
           _passwordController.clear();
           _confirmPasswordController.clear();
-          // This line requires the clearError() method in your AuthProvider
           context.read<AuthProvider>().clearError();
         });
       },
@@ -281,7 +285,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _buildForgotPasswordButton() {
     return TextButton(
-      onPressed: () => _handleForgotPassword(context),
+      onPressed: () => Navigator.pushNamed(context, '/forgot-password'),
       child: const Text(
         'Forgot Password?',
         style: TextStyle(color: AppColors.primary),
@@ -293,7 +297,6 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    // Validate email format
     if (email.isEmpty ||
         !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -302,7 +305,6 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // Validate password
     if (password.isEmpty || password.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Password must be at least 6 characters')),
@@ -310,67 +312,46 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    bool success = false;
     if (_isSignupMode) {
-      // Validate confirm password
       if (password != _confirmPasswordController.text) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Passwords do not match')),
         );
         return;
       }
-      final success = await authProvider.signup(email, password);
+      success = await authProvider.signup(email, password);
+    } else {
+      success = await authProvider.login(email, password);
+    }
 
-      // ✅ FIX: Check if the widget is still mounted
-      if (!context.mounted) return;
+    if (context.mounted && success) {
+      developer.log(
+          '[LoginScreen] Auth successful for $email. Updating settings...');
+      // Get the SettingsProvider once.
+      final settingsProvider = context.read<SettingsProvider>();
 
-      if (success) {
-        // NEW: Save email to settings after successful signup
-        await context.read<SettingsProvider>().updateUserEmail(email);
+      // Update the email.
+      await settingsProvider.updateUserEmail(email);
+      developer.log('[LoginScreen] User email saved to SettingsProvider.');
 
+      // *** THE FIX ***
+      // Get the fresh, updated settings object.
+      final updatedSettings = settingsProvider.settings;
+
+      // Explicitly pass the updated settings to the recalculation function.
+      developer.log(
+          '[LoginScreen] Triggering prediction recalculation with fresh settings.');
+      await context
+          .read<PeriodProvider>()
+          .recalculatePrediction(updatedSettings: updatedSettings);
+
+      if (_isSignupMode) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text('Sign-up successful! Please verify your email')),
         );
       }
-    } else {
-      final success = await authProvider.login(email, password);
-
-      // ✅ FIX: Check if the widget is still mounted
-      if (!context.mounted) return;
-
-      if (success) {
-        // NEW: Save email to settings after successful login
-        await context.read<SettingsProvider>().updateUserEmail(email);
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login successful!')),
-        );
-      }
-    }
-  }
-
-  void _handleForgotPassword(BuildContext context) async {
-    final email = _emailController.text.trim();
-
-    if (email.isEmpty ||
-        !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid email')),
-      );
-      return;
-    }
-
-    final authProvider = context.read<AuthProvider>();
-    final success = await authProvider.resetPassword(email);
-
-    // ✅ FIX: Check if the widget is still mounted
-    if (!context.mounted) return;
-
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Password reset email sent! Check your inbox')),
-      );
     }
   }
 }

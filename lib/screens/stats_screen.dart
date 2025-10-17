@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/period_provider.dart';
+import '../providers/auth_provider.dart'; // Import the AuthProvider
 import '../utils/constants.dart';
 import '../utils/date_helpers.dart';
 
@@ -50,6 +51,10 @@ class _StatsScreenState extends State<StatsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final isPremiumUser =
+        authProvider.currentUser?.email == 'jun379e@gmail.com';
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -83,6 +88,7 @@ class _StatsScreenState extends State<StatsScreen> {
                 if (periodProvider.currentPrediction != null)
                   _buildPredictionCard(
                     periodProvider,
+                    isPremiumUser,
                     onRegenerate: () => _regeneratePrediction(periodProvider),
                   ),
                 const SizedBox(height: 16),
@@ -295,7 +301,8 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   Widget _buildPredictionCard(
-    PeriodProvider periodProvider, {
+    PeriodProvider periodProvider,
+    bool isPremiumUser, {
     required VoidCallback onRegenerate,
   }) {
     final prediction = periodProvider.currentPrediction!;
@@ -323,7 +330,8 @@ class _StatsScreenState extends State<StatsScreen> {
           'Calculated',
           DateHelpers.getRelativeTime(prediction.calculatedAt),
         ),
-        if (prediction.reasoning != null &&
+        if (isPremiumUser &&
+            prediction.reasoning != null &&
             prediction.reasoning!.isNotEmpty) ...[
           const SizedBox(height: 12),
           const Divider(),
