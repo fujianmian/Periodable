@@ -233,7 +233,37 @@ class PeriodProvider extends ChangeNotifier {
       _error = null;
       notifyListeners();
 
-      await _updatePrediction();
+      if (_periodLogs.isEmpty) {
+        _error = 'No period logs available for prediction';
+        _isLoading = false;
+        notifyListeners();
+        return;
+      }
+
+      developer.log('Force recalculating prediction...');
+
+      // Directly call predictNextPeriod, bypassing shouldRecalculate check
+      final prediction = await _predictionService.predictNextPeriod(
+        chronologicalLogs,
+        _settingsProvider.settings,
+      );
+
+      // Save prediction
+      await _databaseService.savePrediction(prediction);
+      _currentPrediction = prediction;
+
+      developer.log(
+          'New prediction: ${DateHelpers.formatLongDate(prediction.predictedDate)}');
+
+      // Schedule notification if enabled
+      if (_settingsProvider.notificationsEnabled) {
+        await _notificationService.scheduleReminder(
+          prediction,
+          _settingsProvider.reminderDaysBefore,
+        );
+        developer.log(
+            'Reminder scheduled for ${_settingsProvider.reminderDaysBefore} days before');
+      }
 
       _isLoading = false;
       notifyListeners();

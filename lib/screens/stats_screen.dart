@@ -1,11 +1,52 @@
+// lib/screens/stats_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/period_provider.dart';
 import '../utils/constants.dart';
 import '../utils/date_helpers.dart';
 
-class StatsScreen extends StatelessWidget {
-  const StatsScreen({Key? key}) : super(key: key);
+class StatsScreen extends StatefulWidget {
+  const StatsScreen({super.key});
+
+  @override
+  State<StatsScreen> createState() => _StatsScreenState();
+}
+
+class _StatsScreenState extends State<StatsScreen> {
+  bool _isRegenerating = false;
+
+  Future<void> _regeneratePrediction(PeriodProvider periodProvider) async {
+    setState(() => _isRegenerating = true);
+
+    try {
+      await periodProvider.recalculatePrediction();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Prediction regenerated successfully'),
+            duration: Duration(seconds: 2),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error regenerating prediction: ${e.toString()}'),
+            duration: const Duration(seconds: 3),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRegenerating = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,20 +78,16 @@ class StatsScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Overview Card
                 _buildOverviewCard(stats, cycleStats),
                 const SizedBox(height: 16),
-
-                // Prediction Info
                 if (periodProvider.currentPrediction != null)
-                  _buildPredictionCard(periodProvider),
+                  _buildPredictionCard(
+                    periodProvider,
+                    onRegenerate: () => _regeneratePrediction(periodProvider),
+                  ),
                 const SizedBox(height: 16),
-
-                // Cycle History
                 _buildCycleHistoryCard(logs),
                 const SizedBox(height: 16),
-
-                // Recent Logs
                 _buildRecentLogsCard(periodProvider.periodLogs),
               ],
             ),
@@ -60,7 +97,6 @@ class StatsScreen extends StatelessWidget {
     );
   }
 
-  /// Build empty state
   Widget _buildEmptyState() {
     return Center(
       child: Padding(
@@ -92,7 +128,6 @@ class StatsScreen extends StatelessWidget {
     );
   }
 
-  /// Build overview card
   Widget _buildOverviewCard(
     Map<String, dynamic> stats,
     Map<String, dynamic>? cycleStats,
@@ -132,24 +167,28 @@ class StatsScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildOverviewItem(
-                label: 'Total Logs',
-                value: '${stats['totalLogs']}',
-              ),
-              if (cycleStats != null)
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
                 _buildOverviewItem(
-                  label: 'Average Cycle',
-                  value: '${cycleStats['averageCycle']} days',
+                  label: 'Total Logs',
+                  value: '${stats['totalLogs']}',
                 ),
-              if (cycleStats != null)
-                _buildOverviewItem(
-                  label: 'Regularity',
-                  value: cycleStats['regularity'],
-                ),
-            ],
+                const SizedBox(width: 16),
+                if (cycleStats != null)
+                  _buildOverviewItem(
+                    label: 'Average Cycle',
+                    value: '${cycleStats['averageCycle']}',
+                  ),
+                const SizedBox(width: 16),
+                if (cycleStats != null)
+                  _buildOverviewItem(
+                    label: 'Regularity',
+                    value: _getRegularityGrade(cycleStats['regularity']),
+                  ),
+              ],
+            ),
           ),
           if (stats['firstLogDate'] != null) ...[
             const SizedBox(height: 16),
@@ -209,7 +248,8 @@ class StatsScreen extends StatelessWidget {
   }
 
   Widget _buildOverviewItem({required String label, required String value}) {
-    return Expanded(
+    return SizedBox(
+      width: 80,
       child: Column(
         children: [
           Text(
@@ -219,52 +259,125 @@ class StatsScreen extends StatelessWidget {
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 4),
           Text(
             label,
             style: TextStyle(
               color: Colors.white.withOpacity(0.9),
-              fontSize: 12,
+              fontSize: 11,
             ),
             textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
     );
   }
 
-  /// Build prediction info card
-  Widget _buildPredictionCard(PeriodProvider periodProvider) {
+  String _getRegularityGrade(String regularity) {
+    switch (regularity) {
+      case 'Very Regular':
+        return '4/4';
+      case 'Regular':
+        return '3/4';
+      case 'Somewhat Irregular':
+        return '2/4';
+      case 'Irregular':
+        return '1/4';
+      default:
+        return '0/4';
+    }
+  }
+
+  Widget _buildPredictionCard(
+    PeriodProvider periodProvider, {
+    required VoidCallback onRegenerate,
+  }) {
     final prediction = periodProvider.currentPrediction!;
+
     return _buildCard(
       title: 'Prediction Details',
       icon: Icons.psychology,
       children: [
-        _buildInfoRow('Next Period',
-            DateHelpers.formatLongDate(prediction.predictedDate)),
+        _buildInfoRow(
+          'Next Period',
+          DateHelpers.formatLongDate(prediction.predictedDate),
+        ),
         const SizedBox(height: 8),
-        _buildInfoRow('Average Cycle', '${prediction.averageCycleLength} days'),
+        _buildInfoRow(
+          'Average Cycle',
+          '${prediction.averageCycleLength} days',
+        ),
         const SizedBox(height: 8),
-        _buildInfoRow('Confidence',
-            '${(prediction.confidence * 100).toStringAsFixed(0)}%'),
+        _buildInfoRow(
+          'Confidence',
+          '${(prediction.confidence * 100).toStringAsFixed(0)}%',
+        ),
         const SizedBox(height: 8),
         _buildInfoRow(
           'Calculated',
           DateHelpers.getRelativeTime(prediction.calculatedAt),
         ),
-        if (prediction.minCycle != null && prediction.maxCycle != null) ...[
+        if (prediction.reasoning != null &&
+            prediction.reasoning!.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          const Divider(),
           const SizedBox(height: 8),
-          _buildInfoRow(
-            'Cycle Range',
-            '${prediction.minCycle}-${prediction.maxCycle} days',
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'AI Reasoning',
+                style: AppTextStyles.body.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                prediction.reasoning!,
+                style: AppTextStyles.caption,
+              ),
+            ],
           ),
         ],
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _isRegenerating ? null : onRegenerate,
+            icon: _isRegenerating
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Icon(Icons.refresh),
+            label: Text(
+              _isRegenerating ? 'Regenerating...' : 'Regenerate Prediction',
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
 
-  /// Build cycle history card
   Widget _buildCycleHistoryCard(List<dynamic> logs) {
     if (logs.length < 2) {
       return const SizedBox.shrink();
@@ -280,7 +393,7 @@ class StatsScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Cycle ${i}',
+                'Cycle $i',
                 style: AppTextStyles.body,
               ),
               Text(
@@ -303,7 +416,6 @@ class StatsScreen extends StatelessWidget {
     );
   }
 
-  /// Build recent logs card
   Widget _buildRecentLogsCard(List<dynamic> logs) {
     final recentLogs = logs.take(5).toList();
 
@@ -331,11 +443,11 @@ class StatsScreen extends StatelessWidget {
     );
   }
 
-  /// Build reusable card widget
   Widget _buildCard({
     required String title,
     required IconData icon,
     required List<Widget> children,
+    Widget? badge,
   }) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -354,13 +466,19 @@ class StatsScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(icon, color: AppColors.primary, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: AppTextStyles.subheading.copyWith(fontSize: 16),
+              Row(
+                children: [
+                  Icon(icon, color: AppColors.primary, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    title,
+                    style: AppTextStyles.subheading,
+                  ),
+                ],
               ),
+              if (badge != null) badge,
             ],
           ),
           const SizedBox(height: 16),
@@ -370,17 +488,21 @@ class StatsScreen extends StatelessWidget {
     );
   }
 
-  /// Build info row
   Widget _buildInfoRow(String label, String value) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: AppTextStyles.body),
-        Text(
-          value,
-          style: AppTextStyles.body.copyWith(
-            fontWeight: FontWeight.w600,
-            color: AppColors.primary,
+        Flexible(
+          child: Text(
+            value,
+            style: AppTextStyles.body.copyWith(
+              fontWeight: FontWeight.w600,
+              color: AppColors.primary,
+            ),
+            textAlign: TextAlign.end,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],

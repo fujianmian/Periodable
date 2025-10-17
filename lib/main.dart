@@ -18,17 +18,29 @@ import 'screens/settings/settings_screen.dart';
 import 'utils/constants.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:firebase_remote_config/firebase_remote_config.dart';
 
 void main() async {
-  final model =
-      GenerativeModel(model: 'gemini-2.5-pro', apiKey: AppConfig.geminiApiKey);
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Set device orientation before anything else
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
+  // Initialize AppConfig FIRST (loads .env and Remote Config)
+  try {
+    await AppConfig.initialize();
+    debugPrint('✓ AppConfig initialized successfully');
+    debugPrint(
+        '✓ Gemini API Key: ${AppConfig.geminiApiKey.isNotEmpty ? "Loaded" : "EMPTY - Check .env or Remote Config"}');
+  } catch (e) {
+    debugPrint('✗ AppConfig initialization error: $e');
+  }
+
+  // Initialize Firebase
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -42,7 +54,7 @@ void main() async {
     debugPrint('✗ Firebase initialization error: $e');
   }
 
-  // ✅ IMPROVEMENT: Add try-catch for robustness, similar to Firebase init
+  // Initialize other services
   try {
     final databaseService = DatabaseService();
     await databaseService.init();

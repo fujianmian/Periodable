@@ -18,16 +18,43 @@ class SettingsProvider extends ChangeNotifier {
   String get theme => _settings.theme;
   bool get firstTimeUser => _settings.firstTimeUser;
   bool get useAIPrediction => _settings.useAIPrediction;
+  String? get userEmail => _settings.userEmail; // NEW
 
   /// Initialize and load settings from database
   Future<void> init() async {
     try {
       _settings = _databaseService.getSettings();
       developer.log(
-          'Settings loaded: notifications=${_settings.notificationsEnabled}, AI=${_settings.useAIPrediction}');
+          'Settings loaded: notifications=${_settings.notificationsEnabled}, AI=${_settings.useAIPrediction}, email=${_settings.userEmail}');
       notifyListeners();
     } catch (e) {
       developer.log('Error loading settings: $e');
+    }
+  }
+
+  /// Update user email (called after login)
+  Future<void> updateUserEmail(String email) async {
+    try {
+      _settings = _settings.copyWith(userEmail: email);
+      await _databaseService.saveSettings(_settings);
+      developer.log('User email updated: $email');
+      notifyListeners();
+    } catch (e) {
+      developer.log('Error updating user email: $e');
+      rethrow;
+    }
+  }
+
+  /// Clear user email (called on logout)
+  Future<void> clearUserEmail() async {
+    try {
+      _settings = _settings.copyWith(userEmail: null);
+      await _databaseService.saveSettings(_settings);
+      developer.log('User email cleared');
+      notifyListeners();
+    } catch (e) {
+      developer.log('Error clearing user email: $e');
+      rethrow;
     }
   }
 

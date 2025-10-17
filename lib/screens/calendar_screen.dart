@@ -123,6 +123,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
       onConfirm: () async {
         try {
           await periodProvider.addPeriodLog(selectedDay);
+          // Recalculate prediction after adding log
+          await periodProvider.recalculatePrediction();
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -154,6 +156,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
         if (log != null) {
           try {
             await periodProvider.deletePeriodLog(log.id);
+            // Recalculate prediction after deleting log
+            await periodProvider.recalculatePrediction();
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -250,6 +254,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
+  /// Convert regularity text to numeric grade
+  String _getRegularityGrade(String regularity) {
+    switch (regularity) {
+      case 'Very Regular':
+        return '4/4';
+      case 'Regular':
+        return '3/4';
+      case 'Somewhat Irregular':
+        return '2/4';
+      case 'Irregular':
+        return '1/4';
+      default:
+        return '0/4';
+    }
+  }
+
   /// Build quick stats section
   Widget _buildQuickStats(PeriodProvider periodProvider) {
     final stats = periodProvider.getStatistics();
@@ -292,7 +312,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ),
           const SizedBox(height: 16),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _buildStatItem(
                 label: 'Total Logs',
@@ -307,7 +327,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 ),
                 _buildStatItem(
                   label: 'Regularity',
-                  value: cycleStats['regularity'],
+                  value: _getRegularityGrade(cycleStats['regularity']),
                   icon: Icons.trending_up,
                 ),
               ],

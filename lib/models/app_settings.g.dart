@@ -23,13 +23,14 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       firstTimeUser: fields[3] as bool,
       lastNotificationTime: fields[4] as DateTime?,
       useAIPrediction: fields[5] as bool,
+      userEmail: fields[6] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettings obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.notificationsEnabled)
       ..writeByte(1)
@@ -41,7 +42,9 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       ..writeByte(4)
       ..write(obj.lastNotificationTime)
       ..writeByte(5)
-      ..write(obj.useAIPrediction);
+      ..write(obj.useAIPrediction)
+      ..writeByte(6)
+      ..write(obj.userEmail);
   }
 
   @override

@@ -57,7 +57,7 @@ class NotificationService {
     }
   }
 
-  /// Request notification permissions (iOS)
+  /// Request notification permissions (iOS and Android)
   Future<bool> _requestPermissions() async {
     if (_notifications.resolvePlatformSpecificImplementation<
             IOSFlutterLocalNotificationsPlugin>() !=
@@ -89,10 +89,9 @@ class NotificationService {
   /// Handle notification tap
   void _onNotificationTapped(NotificationResponse response) {
     developer.log('Notification tapped: ${response.payload}');
-    // You can add navigation logic here if needed
   }
 
-  /// Schedule a reminder notification
+  /// Schedule a reminder notification with fallback
   Future<void> scheduleReminder(
     PredictionData prediction,
     int daysBefore,
@@ -152,22 +151,43 @@ class NotificationService {
         iOS: iosDetails,
       );
 
-      // Schedule the notification
-      await _notifications.zonedSchedule(
-        0, // notification id
-        '🩸 Period Reminder',
-        daysBefore == 1
-            ? 'Your period is expected tomorrow (${DateHelpers.formatShortDate(prediction.predictedDate)})'
-            : 'Your period is expected in $daysBefore days (${DateHelpers.formatShortDate(prediction.predictedDate)})',
-        scheduledDate,
-        notificationDetails,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        matchDateTimeComponents: DateTimeComponents.time,
-        payload: 'period_reminder',
-      );
+      final notificationMessage = daysBefore == 1
+          ? 'Your period is expected tomorrow (${DateHelpers.formatShortDate(prediction.predictedDate)})'
+          : 'Your period is expected in $daysBefore days (${DateHelpers.formatShortDate(prediction.predictedDate)})';
 
-      developer.log(
-          'Reminder scheduled for ${DateHelpers.formatLongDate(notificationDate)} at 9:00 AM');
+      try {
+        // Try scheduling with exact alarms first
+        await _notifications.zonedSchedule(
+          0,
+          '🩸 Period Reminder',
+          notificationMessage,
+          scheduledDate,
+          notificationDetails,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          matchDateTimeComponents: DateTimeComponents.time,
+          payload: 'period_reminder',
+        );
+
+        developer.log(
+            'Reminder scheduled (EXACT) for ${DateHelpers.formatLongDate(notificationDate)} at 9:00 AM');
+      } catch (e) {
+        developer.log('Exact alarm failed, falling back to inexact: $e');
+
+        // Fallback to inexact alarms if exact fails
+        await _notifications.zonedSchedule(
+          0,
+          '🩸 Period Reminder',
+          notificationMessage,
+          scheduledDate,
+          notificationDetails,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          matchDateTimeComponents: DateTimeComponents.time,
+          payload: 'period_reminder',
+        );
+
+        developer.log(
+            'Reminder scheduled (INEXACT) for ${DateHelpers.formatLongDate(notificationDate)} at 9:00 AM');
+      }
     } catch (e) {
       developer.log('Error scheduling reminder: $e');
       rethrow;
@@ -227,7 +247,7 @@ class NotificationService {
     );
 
     await _notifications.show(
-      999, // test notification id
+      999,
       title,
       body,
       notificationDetails,
@@ -254,7 +274,6 @@ class NotificationService {
           false;
     }
 
-    // For iOS, assume enabled if permissions were granted
     return true;
   }
 }

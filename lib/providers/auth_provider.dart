@@ -1,8 +1,3 @@
-// KEY FIXES:
-// 1. Remove notifyListeners() call inside authStateChanges listener
-// 2. Add state check in _startVerificationCheck to prevent duplicate timers
-// 3. Better error handling for Firebase operations
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/material.dart';

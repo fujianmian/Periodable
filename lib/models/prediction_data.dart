@@ -22,8 +22,8 @@ class PredictionData extends HiveObject {
   @HiveField(5)
   int? maxCycle; // Optional: maximum cycle length observed
 
-  @HiveField(5)
-  int? reasoning;
+  @HiveField(6)
+  String? reasoning;
 
   PredictionData({
     required this.predictedDate,

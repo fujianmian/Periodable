@@ -23,13 +23,14 @@ class PredictionDataAdapter extends TypeAdapter<PredictionData> {
       calculatedAt: fields[3] as DateTime,
       minCycle: fields[4] as int?,
       maxCycle: fields[5] as int?,
+      reasoning: fields[6] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, PredictionData obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.predictedDate)
       ..writeByte(1)
@@ -41,7 +42,9 @@ class PredictionDataAdapter extends TypeAdapter<PredictionData> {
       ..writeByte(4)
       ..write(obj.minCycle)
       ..writeByte(5)
-      ..write(obj.maxCycle);
+      ..write(obj.maxCycle)
+      ..writeByte(6)
+      ..write(obj.reasoning);
   }
 
   @override

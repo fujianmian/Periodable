@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/constants.dart';
+import '../../providers/settings_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -323,6 +324,9 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!context.mounted) return;
 
       if (success) {
+        // NEW: Save email to settings after successful signup
+        await context.read<SettingsProvider>().updateUserEmail(email);
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text('Sign-up successful! Please verify your email')),
@@ -335,6 +339,9 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!context.mounted) return;
 
       if (success) {
+        // NEW: Save email to settings after successful login
+        await context.read<SettingsProvider>().updateUserEmail(email);
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Login successful!')),
         );
