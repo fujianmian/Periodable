@@ -52,22 +52,23 @@ class _StatsScreenState extends State<StatsScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final isPremiumUser =
-        authProvider.currentUser?.email == 'jun379e@gmail.com';
+    final userEmail = authProvider.currentUser?.email?.toLowerCase();
+    final isPremiumUser = userEmail == 'jun379e@gmail.com' ||
+        userEmail == 'junyong112204@gmail.com';
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text(
-          'Statistics',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
+      // appBar: AppBar(
+      //   backgroundColor: Colors.transparent,
+      //   elevation: 0,
+      //   title: const Text(
+      //     'Statistics',
+      //     style: TextStyle(
+      //       color: AppColors.textPrimary,
+      //       fontWeight: FontWeight.w600,
+      //     ),
+      //   ),
+      // ),
       body: Consumer<PeriodProvider>(
         builder: (context, periodProvider, child) {
           final stats = periodProvider.getStatistics();

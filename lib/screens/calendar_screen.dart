@@ -23,37 +23,37 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text(
-          AppConfig.appName,
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        actions: [
-          // Refresh button
-          Consumer<PeriodProvider>(
-            builder: (context, periodProvider, child) {
-              return IconButton(
-                icon: periodProvider.isLoading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.refresh, color: AppColors.primary),
-                onPressed: periodProvider.isLoading
-                    ? null
-                    : () => periodProvider.recalculatePrediction(),
-                tooltip: 'Recalculate Prediction',
-              );
-            },
-          ),
-        ],
-      ),
+      // appBar: AppBar(
+      //   backgroundColor: Colors.transparent,
+      //   elevation: 0,
+      //   title: const Text(
+      //     AppConfig.appName,
+      //     style: TextStyle(
+      //       color: AppColors.textPrimary,
+      //       fontWeight: FontWeight.w600,
+      //     ),
+      //   ),
+      //   actions: [
+      //     // Refresh button
+      //     Consumer<PeriodProvider>(
+      //       builder: (context, periodProvider, child) {
+      //         return IconButton(
+      //           icon: periodProvider.isLoading
+      //               ? const SizedBox(
+      //                   width: 20,
+      //                   height: 20,
+      //                   child: CircularProgressIndicator(strokeWidth: 2),
+      //                 )
+      //               : const Icon(Icons.refresh, color: AppColors.primary),
+      //           onPressed: periodProvider.isLoading
+      //               ? null
+      //               : () => periodProvider.recalculatePrediction(),
+      //           tooltip: 'Recalculate Prediction',
+      //         );
+      //       },
+      //     ),
+      //   ],
+      // ),
       body: Consumer<PeriodProvider>(
         builder: (context, periodProvider, child) {
           if (periodProvider.error != null) {

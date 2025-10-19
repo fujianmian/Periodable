@@ -24,6 +24,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'screens/auth/email_verification_screen.dart'; // Import the new screen
 
+// lib/main.dart
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -33,17 +35,9 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // Initialize AppConfig FIRST (loads .env and Remote Config)
-  try {
-    await AppConfig.initialize();
-    debugPrint('✓ AppConfig initialized successfully');
-    debugPrint(
-        '✓ Gemini API Key: ${AppConfig.geminiApiKey.isNotEmpty ? "Loaded" : "EMPTY - Check .env or Remote Config"}');
-  } catch (e) {
-    debugPrint('✗ AppConfig initialization error: $e');
-  }
+  // --- Start of Changes ---
 
-  // Initialize Firebase
+  // 1. Initialize Firebase FIRST
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -56,6 +50,16 @@ void main() async {
   } catch (e) {
     debugPrint('✗ Firebase initialization error: $e');
   }
+
+  // 2. Initialize AppConfig SECOND (now that Firebase is ready)
+  try {
+    await AppConfig.initialize();
+    debugPrint('✓ AppConfig initialized successfully');
+  } catch (e) {
+    debugPrint('✗ AppConfig initialization error: $e');
+  }
+
+  // --- End of Changes ---
 
   // Initialize other services
   try {

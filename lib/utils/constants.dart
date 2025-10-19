@@ -87,12 +87,19 @@ class AppConfig {
     if (_initialized) return; // Prevent duplicate initialization
 
     try {
-      // Load .env file first (for local development fallback)
+      // Try to load .env file but don't fail if it's not there.
+      // This is useful for local development but not required for production.
       await dotenv.load(fileName: ".env");
-
-      // Set .env fallback values first
       _setEnvValues();
+      print('✓ .env file loaded (fallback for Remote Config)');
+    } catch (e) {
+      // This is expected if the .env file is not present.
+      print('ℹ️ .env file not found, proceeding with Remote Config.');
+    }
 
+    // --- End of Changes ---
+
+    try {
       // Initialize Firebase Remote Config
       final remoteConfig = FirebaseRemoteConfig.instance;
 
@@ -121,13 +128,8 @@ class AppConfig {
 
       _initialized = true;
       print('✓ AppConfig initialized successfully');
-      print(
-          '  - Gemini API Key: ${_geminiApiKey.isNotEmpty ? '${_geminiApiKey.substring(0, 10)}...' : 'NOT SET'}');
-      print('  - API URL: $_apiUrl');
-      print('  - Gemini Model: $_geminiModel');
     } catch (e) {
       print('✗ Error initializing AppConfig: $e');
-      _setEnvValues(); // Fall back to .env values
       _initialized = true;
     }
   }
@@ -142,6 +144,10 @@ class AppConfig {
   // Load values from Remote Config with .env fallbacks
   static void _loadRemoteConfigValues(FirebaseRemoteConfig remoteConfig) {
     try {
+      // Log all fetched remote config values
+      print('✓ Remote Config fetched values:');
+      remoteConfig.getAll().forEach((key, value) {});
+
       final remoteApiKey = remoteConfig.getString('gemini_api_key');
       if (remoteApiKey.isNotEmpty) {
         _geminiApiKey = remoteApiKey;

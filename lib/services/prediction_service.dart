@@ -14,8 +14,11 @@ class PredictionService {
 
   final GeminiService _geminiService = GeminiService();
 
-  // Premium user email
-  static const String PREMIUM_USER_EMAIL = 'jun379e@gmail.com';
+  // Premium user emails
+  static const List<String> PREMIUM_USER_EMAILS = [
+    'jun379e@gmail.com',
+    'junyong112204@gmail.com',
+  ];
 
   /// Main prediction method - uses AI for premium user, local calculation for others
   Future<PredictionData> predictNextPeriod(
@@ -47,9 +50,10 @@ class PredictionService {
 
   /// Check if the user is the premium user AND has AI enabled
   bool _isPremiumUser(AppSettings settings) {
-    bool result = settings.useAIPrediction &&
-        settings.userEmail != null &&
-        settings.userEmail == PREMIUM_USER_EMAIL;
+    final email = settings.userEmail;
+    final result = settings.useAIPrediction &&
+        email != null &&
+        PREMIUM_USER_EMAILS.contains(email.toLowerCase());
     developer.log(
         '[PredictionService] _isPremiumUser check: useAI=${settings.useAIPrediction}, email=${settings.userEmail}, result=$result');
     return result;
@@ -95,7 +99,6 @@ class PredictionService {
   Future<PredictionData> _predictLocally(List<PeriodLog> logs) async {
     developer.log('-----> [PredictionService] Path selected: _predictLocally');
 
-    // ... [rest of the function is unchanged]
     final cycleStats = calculateCycleStats(logs);
 
     if (cycleStats == null) {
@@ -128,7 +131,6 @@ class PredictionService {
     );
   }
 
-  // ... [Keep the rest of the methods the same]
   PredictionData _predictWithDefaultCycle(DateTime lastPeriodDate) {
     const defaultCycle = 28;
     final nextPeriodDate =

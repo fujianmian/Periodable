@@ -14,27 +14,31 @@ import 'widgets/dialogs/clear_data_dialog.dart';
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({Key? key}) : super(key: key);
 
-  // Define the allowed email for special features
-  static const String _allowedEmail = 'jun379e@gmail.com';
+  // Define the allowed emails for special features
+  static const List<String> _allowedEmails = [
+    'jun379e@gmail.com',
+    'junyong112204@gmail.com',
+  ];
 
   bool _isAllowedUser(AuthProvider authProvider) {
-    return authProvider.isAuthenticated &&
-        authProvider.currentUser?.email == _allowedEmail;
+    if (!authProvider.isAuthenticated) return false;
+    final email = authProvider.currentUser?.email?.toLowerCase();
+    return email != null && _allowedEmails.contains(email);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text(
-          'Settings',
-          style: TextStyle(
-              color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-        ),
-      ),
+      // appBar: AppBar(
+      //   backgroundColor: Colors.transparent,
+      //   elevation: 0,
+      //   title: const Text(
+      //     'Settings',
+      //     style: TextStyle(
+      //         color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+      //   ),
+      // ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
