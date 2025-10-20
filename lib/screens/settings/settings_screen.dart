@@ -5,11 +5,13 @@ import 'package:provider/provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/period_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/database_service.dart';
 import '../../utils/constants.dart';
 import 'widgets/settings_section.dart';
 import 'widgets/settings_tiles.dart';
 import 'widgets/dialogs/feedback_dialog.dart';
 import 'widgets/dialogs/clear_data_dialog.dart';
+import '../../utils/logger.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({Key? key}) : super(key: key);
@@ -113,8 +115,51 @@ class SettingsScreen extends StatelessWidget {
                       ],
                     ),
                   );
+
                   if (confirmed ?? false) {
-                    await authProvider.logout();
+                    if (context.mounted) {
+                      try {
+                        final authProvider = context.read<AuthProvider>();
+                        final settingsProvider =
+                            context.read<SettingsProvider>();
+                        final periodProvider = context.read<PeriodProvider>();
+
+                        // Get user email before logout
+                        final userEmail = authProvider.currentUser?.email;
+
+                        // Clear user-specific data from database
+                        if (userEmail != null) {
+                          final databaseService = DatabaseService();
+                          await databaseService.clearUserData(userEmail);
+                          FileLogger.log('User data cleared for: $userEmail');
+                        }
+
+                        // Clear provider data
+                        periodProvider.clearCurrentUser();
+                        await settingsProvider.clearUserEmail();
+
+                        // Logout from Firebase
+                        await authProvider.logout();
+
+                        if (context.mounted) {
+                          Navigator.pushNamedAndRemoveUntil(
+                            context,
+                            '/login',
+                            (route) => false,
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error during logout: $e'),
+                              backgroundColor: Colors.red,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      }
+                    }
                   }
                 },
               ),

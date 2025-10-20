@@ -53,22 +53,56 @@ class DatabaseService {
 
   // ==================== PERIOD LOG OPERATIONS ====================
 
-  /// Add a new period log
-  Future<void> addPeriodLog(PeriodLog log) async {
+  /// Add a new period log with user email binding
+  Future<void> addPeriodLog(PeriodLog log, {String? userEmail}) async {
     try {
-      await _periodBox!.put(log.id, log);
-      FileLogger.log('Period log added: ${log.startDate}');
+      // Attach the current user's email to the log
+      final logWithEmail = log.copyWith(userEmail: userEmail ?? log.userEmail);
+      await _periodBox!.put(logWithEmail.id, logWithEmail);
+      FileLogger.log('Period log added for user $userEmail: ${log.startDate}');
     } catch (e) {
       FileLogger.log('Error adding period log: $e');
       rethrow;
     }
   }
 
-  /// Get all period logs sorted by date (newest first)
+  /// Get all period logs for a specific user (newest first)
+  List<PeriodLog> getPeriodLogsForUser(String userEmail) {
+    try {
+      final logs = _periodBox!.values
+          .where(
+              (log) => log.userEmail?.toLowerCase() == userEmail.toLowerCase())
+          .toList();
+      logs.sort((a, b) => b.startDate.compareTo(a.startDate));
+      return logs;
+    } catch (e) {
+      FileLogger.log('Error getting period logs for user: $e');
+      return [];
+    }
+  }
+
+  /// Get period logs for a specific user in chronological order (oldest first)
+  List<PeriodLog> getPeriodLogsChronologicalForUser(String userEmail) {
+    try {
+      final logs = _periodBox!.values
+          .where(
+              (log) => log.userEmail?.toLowerCase() == userEmail.toLowerCase())
+          .toList();
+      logs.sort((a, b) => a.startDate.compareTo(b.startDate));
+      return logs;
+    } catch (e) {
+      FileLogger.log('Error getting chronological logs for user: $e');
+      return [];
+    }
+  }
+
+  /// Get all period logs sorted by date (newest first) - DEPRECATED
+  /// Use getPeriodLogsForUser instead for user-specific data
+  @Deprecated('Use getPeriodLogsForUser instead')
   List<PeriodLog> getAllPeriodLogs() {
     try {
       final logs = _periodBox!.values.toList();
-      logs.sort((a, b) => b.startDate.compareTo(a.startDate)); // Newest first
+      logs.sort((a, b) => b.startDate.compareTo(a.startDate));
       return logs;
     } catch (e) {
       FileLogger.log('Error getting period logs: $e');
@@ -76,11 +110,13 @@ class DatabaseService {
     }
   }
 
-  /// Get period logs in chronological order (oldest first)
+  /// Get period logs in chronological order (oldest first) - DEPRECATED
+  /// Use getPeriodLogsChronologicalForUser instead for user-specific data
+  @Deprecated('Use getPeriodLogsChronologicalForUser instead')
   List<PeriodLog> getPeriodLogsChronological() {
     try {
       final logs = _periodBox!.values.toList();
-      logs.sort((a, b) => a.startDate.compareTo(b.startDate)); // Oldest first
+      logs.sort((a, b) => a.startDate.compareTo(b.startDate));
       return logs;
     } catch (e) {
       FileLogger.log('Error getting chronological period logs: $e');
@@ -88,10 +124,15 @@ class DatabaseService {
     }
   }
 
-  /// Get period log by date
-  PeriodLog? getPeriodLogByDate(DateTime date) {
+  /// Get period log by specific date for a user
+  PeriodLog? getPeriodLogByDate(DateTime date, {String? userEmail}) {
     try {
-      return _periodBox!.values.firstWhere(
+      final allLogs = userEmail != null
+          ? _periodBox!.values.where(
+              (log) => log.userEmail?.toLowerCase() == userEmail.toLowerCase())
+          : _periodBox!.values;
+
+      return allLogs.firstWhere(
         (log) =>
             log.startDate.year == date.year &&
             log.startDate.month == date.month &&
@@ -126,51 +167,116 @@ class DatabaseService {
     }
   }
 
-  /// Get the most recent period log
+  /// Get the most recent period log for a user
+  PeriodLog? getLastPeriodLogForUser(String userEmail) {
+    try {
+      final logs = getPeriodLogsForUser(userEmail);
+      return logs.isNotEmpty ? logs.first : null;
+    } catch (e) {
+      FileLogger.log('Error getting last period log: $e');
+      return null;
+    }
+  }
+
+  /// Get the most recent period log (all users) - DEPRECATED
+  @Deprecated('Use getLastPeriodLogForUser instead')
   PeriodLog? getLastPeriodLog() {
     final logs = getAllPeriodLogs();
     return logs.isNotEmpty ? logs.first : null;
   }
 
-  /// Get period logs within a date range
-  List<PeriodLog> getPeriodLogsByDateRange(DateTime start, DateTime end) {
+  /// Get period logs within a date range (all users) - Consider making user-specific
+  List<PeriodLog> getPeriodLogsByDateRange(DateTime start, DateTime end,
+      {String? userEmail}) {
     try {
-      return _periodBox!.values.where((log) {
+      var logs = _periodBox!.values.where((log) {
         return log.startDate.isAfter(start.subtract(const Duration(days: 1))) &&
             log.startDate.isBefore(end.add(const Duration(days: 1)));
-      }).toList();
+      });
+
+      // Filter by user if provided
+      if (userEmail != null) {
+        logs = logs.where(
+            (log) => log.userEmail?.toLowerCase() == userEmail.toLowerCase());
+      }
+
+      return logs.toList();
     } catch (e) {
       FileLogger.log('Error getting period logs by date range: $e');
       return [];
     }
   }
 
-  /// Check if a date has a logged period
-  bool hasLogOnDate(DateTime date) {
-    return getPeriodLogByDate(date) != null;
+  /// Check if a date has a logged period for a user
+  bool hasLogOnDateForUser(DateTime date, String userEmail) {
+    return getPeriodLogByDate(date, userEmail: userEmail) != null;
   }
 
-  /// Get count of total logs
+  /// Get count of total logs for a user
+  int getPeriodLogCountForUser(String userEmail) {
+    try {
+      return _periodBox!.values
+          .where(
+              (log) => log.userEmail?.toLowerCase() == userEmail.toLowerCase())
+          .length;
+    } catch (e) {
+      FileLogger.log('Error getting period log count: $e');
+      return 0;
+    }
+  }
+
+  /// Get count of total logs (all users) - DEPRECATED
+  @Deprecated('Use getPeriodLogCountForUser instead')
   int getPeriodLogCount() {
     return _periodBox!.length;
   }
 
   // ==================== PREDICTION OPERATIONS ====================
 
-  /// Save prediction data
-  Future<void> savePrediction(PredictionData prediction) async {
+  /// Save prediction data for a user
+  Future<void> savePrediction(PredictionData prediction,
+      {String? userEmail}) async {
     try {
-      // We only keep the latest prediction
-      await _predictionBox!.clear();
-      await _predictionBox!.add(prediction);
-      FileLogger.log('Prediction saved: ${prediction.predictedDate}');
+      // We keep only one prediction per user
+      // Clear old predictions for this user
+      if (userEmail != null) {
+        final userPredictions = _predictionBox!.values
+            .where((p) => p.userEmail?.toLowerCase() == userEmail.toLowerCase())
+            .toList();
+
+        for (var pred in userPredictions) {
+          await pred.delete();
+        }
+      }
+
+      // Save new prediction with user email
+      final predictionWithEmail =
+          prediction.copyWith(userEmail: userEmail ?? prediction.userEmail);
+      await _predictionBox!.add(predictionWithEmail);
+      FileLogger.log(
+          'Prediction saved for user $userEmail: ${prediction.predictedDate}');
     } catch (e) {
       FileLogger.log('Error saving prediction: $e');
       rethrow;
     }
   }
 
-  /// Get the latest prediction
+  /// Get the latest prediction for a specific user
+  PredictionData? getLatestPredictionForUser(String userEmail) {
+    try {
+      if (_predictionBox!.isEmpty) return null;
+      final userPredictions = _predictionBox!.values
+          .where((p) => p.userEmail?.toLowerCase() == userEmail.toLowerCase())
+          .toList();
+      return userPredictions.isNotEmpty ? userPredictions.first : null;
+    } catch (e) {
+      FileLogger.log('Error getting prediction for user: $e');
+      return null;
+    }
+  }
+
+  /// Get the latest prediction (all users) - DEPRECATED
+  @Deprecated('Use getLatestPredictionForUser instead')
   PredictionData? getLatestPrediction() {
     try {
       if (_predictionBox!.isEmpty) return null;
@@ -188,6 +294,33 @@ class DatabaseService {
       FileLogger.log('Prediction deleted');
     } catch (e) {
       FileLogger.log('Error deleting prediction: $e');
+      rethrow;
+    }
+  }
+
+  /// Clear all data for a specific user
+  Future<void> clearUserData(String userEmail) async {
+    try {
+      // Delete period logs for this user
+      final logsToDelete = _periodBox!.values
+          .where(
+              (log) => log.userEmail?.toLowerCase() == userEmail.toLowerCase())
+          .toList();
+      for (var log in logsToDelete) {
+        await log.delete();
+      }
+
+      // Delete predictions for this user
+      final predictionsToDelete = _predictionBox!.values
+          .where((p) => p.userEmail?.toLowerCase() == userEmail.toLowerCase())
+          .toList();
+      for (var pred in predictionsToDelete) {
+        await pred.delete();
+      }
+
+      FileLogger.log('All data cleared for user: $userEmail');
+    } catch (e) {
+      FileLogger.log('Error clearing user data: $e');
       rethrow;
     }
   }
@@ -226,7 +359,7 @@ class DatabaseService {
 
   // ==================== DATA MANAGEMENT ====================
 
-  /// Clear all period logs
+  /// Clear all period logs and predictions (all users)
   Future<void> clearAllPeriodLogs() async {
     try {
       await _periodBox!.clear();
@@ -238,7 +371,7 @@ class DatabaseService {
     }
   }
 
-  /// Export all data as JSON
+  /// Export all data as JSON (all users)
   Map<String, dynamic> exportData() {
     try {
       return {
@@ -253,24 +386,58 @@ class DatabaseService {
     }
   }
 
-  /// Import data from JSON
-  Future<void> importData(Map<String, dynamic> data) async {
+  /// Export data for a specific user
+  Map<String, dynamic> exportDataForUser(String userEmail) {
     try {
-      // Clear existing data
-      await clearAllPeriodLogs();
+      final userPrediction = getLatestPredictionForUser(userEmail);
+      return {
+        'periodLogs': _periodBox!.values
+            .where((log) =>
+                log.userEmail?.toLowerCase() == userEmail.toLowerCase())
+            .map((log) => log.toJson())
+            .toList(),
+        'prediction': userPrediction?.toJson(),
+        'settings': getSettings().toJson(),
+        'exportedAt': DateTime.now().toIso8601String(),
+      };
+    } catch (e) {
+      FileLogger.log('Error exporting data for user: $e');
+      rethrow;
+    }
+  }
+
+  /// Import data from JSON
+  Future<void> importData(Map<String, dynamic> data,
+      {String? userEmail}) async {
+    try {
+      // If userEmail is provided, clear only that user's data
+      if (userEmail != null) {
+        await clearUserData(userEmail);
+      } else {
+        // Otherwise clear all data (backward compatibility)
+        await clearAllPeriodLogs();
+      }
 
       // Import period logs
       if (data['periodLogs'] != null) {
         for (var logJson in data['periodLogs']) {
           final log = PeriodLog.fromJson(logJson);
-          await addPeriodLog(log);
+          // Override userEmail if provided
+          final finalLog =
+              userEmail != null ? log.copyWith(userEmail: userEmail) : log;
+          await addPeriodLog(finalLog, userEmail: finalLog.userEmail);
         }
       }
 
       // Import prediction
       if (data['prediction'] != null) {
         final prediction = PredictionData.fromJson(data['prediction']);
-        await savePrediction(prediction);
+        // Override userEmail if provided
+        final finalPrediction = userEmail != null
+            ? prediction.copyWith(userEmail: userEmail)
+            : prediction;
+        await savePrediction(finalPrediction,
+            userEmail: finalPrediction.userEmail);
       }
 
       // Import settings
@@ -294,9 +461,41 @@ class DatabaseService {
     FileLogger.log('Database closed');
   }
 
-  /// Get database statistics
+  /// Get database statistics for all users
+  @Deprecated('Use getStatisticsForUser instead')
   Map<String, dynamic> getStatistics() {
     final logs = getPeriodLogsChronological();
+
+    if (logs.isEmpty) {
+      return {
+        'totalLogs': 0,
+        'firstLogDate': null,
+        'lastLogDate': null,
+        'averageCycle': null,
+      };
+    }
+
+    // Calculate average cycle
+    int? avgCycle;
+    if (logs.length >= 2) {
+      List<int> cycles = [];
+      for (int i = 1; i < logs.length; i++) {
+        cycles.add(logs[i].startDate.difference(logs[i - 1].startDate).inDays);
+      }
+      avgCycle = (cycles.reduce((a, b) => a + b) / cycles.length).round();
+    }
+
+    return {
+      'totalLogs': logs.length,
+      'firstLogDate': logs.first.startDate,
+      'lastLogDate': logs.last.startDate,
+      'averageCycle': avgCycle,
+    };
+  }
+
+  /// Get database statistics for a specific user
+  Map<String, dynamic> getStatisticsForUser(String userEmail) {
+    final logs = getPeriodLogsChronologicalForUser(userEmail);
 
     if (logs.isEmpty) {
       return {

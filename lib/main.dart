@@ -149,32 +149,29 @@ class AppRouter extends StatefulWidget {
 }
 
 class _AppRouterState extends State<AppRouter> {
-  // ⭐ CHANGE: Use didChangeDependencies to react to provider changes
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _syncUserEmail();
   }
 
-  // ⭐ UPDATE: New method to synchronize the email
-  /// This method ensures that if a user is logged in, their email is
-  /// correctly stored in the SettingsProvider. This fixes the bug where
-  /// the premium check would fail on app startup.
   void _syncUserEmail() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final settingsProvider =
         Provider.of<SettingsProvider>(context, listen: false);
+    final periodProvider = Provider.of<PeriodProvider>(context, listen: false);
 
     final user = authProvider.currentUser;
     final storedEmail = settingsProvider.settings.userEmail;
 
-    // If user is logged in and the email is not yet stored in settings, update it.
     if (user != null && user.email != null && user.email != storedEmail) {
-      debugPrint(
-          '[AppRouter] Syncing user email to SettingsProvider: ${user.email}');
-      // Use a post-frame callback to avoid calling setState during a build.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        settingsProvider.updateUserEmail(user.email!);
+      debugPrint('[AppRouter] Syncing user email: ${user.email}');
+
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await settingsProvider.updateUserEmail(user.email!);
+
+        // Initialize period provider with user email
+        await periodProvider.init(userEmail: user.email);
       });
     }
   }
@@ -191,7 +188,6 @@ class _AppRouterState extends State<AppRouter> {
 
         if (authProvider.isAuthenticated) {
           if (!authProvider.isEmailVerified) {
-            // Your existing email verification screen
             return EmailVerificationScreen(
               email: authProvider.currentUser?.email ?? '',
             );

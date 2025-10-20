@@ -11,19 +11,22 @@ class PredictionData extends HiveObject {
   int averageCycleLength;
 
   @HiveField(2)
-  double confidence; // 0.0 to 1.0
+  double confidence;
 
   @HiveField(3)
   DateTime calculatedAt;
 
   @HiveField(4)
-  int? minCycle; // Optional: minimum cycle length observed
+  int? minCycle;
 
   @HiveField(5)
-  int? maxCycle; // Optional: maximum cycle length observed
+  int? maxCycle;
 
   @HiveField(6)
   String? reasoning;
+
+  @HiveField(7)
+  String? userEmail;
 
   PredictionData({
     required this.predictedDate,
@@ -33,6 +36,7 @@ class PredictionData extends HiveObject {
     this.minCycle,
     this.maxCycle,
     this.reasoning,
+    this.userEmail,
   });
 
   // Get prediction range (±2 days)
@@ -52,6 +56,29 @@ class PredictionData extends HiveObject {
     return 'Low';
   }
 
+  // ✅ FIX 1: Add copyWith method
+  PredictionData copyWith({
+    DateTime? predictedDate,
+    int? averageCycleLength,
+    double? confidence,
+    DateTime? calculatedAt,
+    int? minCycle,
+    int? maxCycle,
+    String? reasoning,
+    String? userEmail,
+  }) {
+    return PredictionData(
+      predictedDate: predictedDate ?? this.predictedDate,
+      averageCycleLength: averageCycleLength ?? this.averageCycleLength,
+      confidence: confidence ?? this.confidence,
+      calculatedAt: calculatedAt ?? this.calculatedAt,
+      minCycle: minCycle ?? this.minCycle,
+      maxCycle: maxCycle ?? this.maxCycle,
+      reasoning: reasoning ?? this.reasoning,
+      userEmail: userEmail ?? this.userEmail,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'predictedDate': predictedDate.toIso8601String(),
@@ -61,6 +88,7 @@ class PredictionData extends HiveObject {
       'minCycle': minCycle,
       'maxCycle': maxCycle,
       'reasoning': reasoning,
+      'userEmail': userEmail,
     };
   }
 
@@ -73,11 +101,12 @@ class PredictionData extends HiveObject {
       minCycle: json['minCycle'],
       maxCycle: json['maxCycle'],
       reasoning: json['reasoning'],
+      userEmail: json['userEmail'],
     );
   }
 
   @override
   String toString() {
-    return 'PredictionData(predicted: $predictedDate, avgCycle: $averageCycleLength, confidence: ${(confidence * 100).toStringAsFixed(0)}%)';
+    return 'PredictionData(predicted: $predictedDate, avgCycle: $averageCycleLength, confidence: ${(confidence * 100).toStringAsFixed(0)}%, userEmail: $userEmail)';
   }
 }

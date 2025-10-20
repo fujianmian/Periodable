@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../../utils/constants.dart';
-import '../../../../providers/period_provider.dart';
+import 'package:menstrual_cycle_tracker/providers/period_provider.dart';
+import 'package:menstrual_cycle_tracker/utils/constants.dart';
 
 class ClearDataDialog {
   static void show(BuildContext context) {

@@ -3,7 +3,7 @@
 import 'package:flutter/foundation.dart';
 import '../models/period_log.dart';
 import '../models/prediction_data.dart';
-import '../models/app_settings.dart'; // Import AppSettings
+import '../models/app_settings.dart';
 import '../services/database_service.dart';
 import '../services/prediction_service.dart';
 import '../services/notification_service.dart';
@@ -22,6 +22,7 @@ class PeriodProvider extends ChangeNotifier {
   PredictionData? _currentPrediction;
   bool _isLoading = false;
   String? _error;
+  String? _currentUserEmail; // Track current user
 
   PeriodProvider(this._settingsProvider);
 
@@ -30,6 +31,7 @@ class PeriodProvider extends ChangeNotifier {
   PredictionData? get currentPrediction => _currentPrediction;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  String? get currentUserEmail => _currentUserEmail;
 
   void updateDependencies(SettingsProvider newSettingsProvider) {
     _settingsProvider = newSettingsProvider;
@@ -43,14 +45,26 @@ class PeriodProvider extends ChangeNotifier {
 
   PeriodLog? get lastLog => _periodLogs.isNotEmpty ? _periodLogs.first : null;
 
-  Future<void> init() async {
+  /// Initialize provider with user-specific data
+  Future<void> init({String? userEmail}) async {
     try {
       _isLoading = true;
       notifyListeners();
-      _periodLogs = _databaseService.getAllPeriodLogs();
-      _currentPrediction = _databaseService.getLatestPrediction();
-      FileLogger.log(
-          '[PeriodProvider] Initialized: ${_periodLogs.length} logs loaded.');
+
+      if (userEmail != null) {
+        _currentUserEmail = userEmail;
+        _periodLogs = _databaseService.getPeriodLogsForUser(userEmail);
+        _currentPrediction =
+            _databaseService.getLatestPredictionForUser(userEmail);
+        FileLogger.log(
+            '[PeriodProvider] Initialized for user $userEmail: ${_periodLogs.length} logs loaded.');
+      } else {
+        _currentUserEmail = null;
+        _periodLogs = [];
+        _currentPrediction = null;
+        FileLogger.log('[PeriodProvider] Initialized without user email.');
+      }
+
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -61,14 +75,24 @@ class PeriodProvider extends ChangeNotifier {
     }
   }
 
-  // ... [Keep addPeriodLog, updatePeriodLog, deletePeriodLog, etc. the same]
-  Future<void> addPeriodLog(DateTime date) async {
+  /// Add a new period log for the current user
+  Future<void> addPeriodLog(DateTime date, {String? userEmail}) async {
     try {
       _isLoading = true;
       _error = null;
       notifyListeners();
 
-      final existingLog = _databaseService.getPeriodLogByDate(date);
+      // Use provided email or current user email
+      final emailToUse = userEmail ?? _currentUserEmail;
+      if (emailToUse == null) {
+        _error = 'No user email available. Please login first.';
+        _isLoading = false;
+        notifyListeners();
+        return;
+      }
+
+      final existingLog =
+          _databaseService.getPeriodLogByDate(date, userEmail: emailToUse);
       if (existingLog != null) {
         _error = 'A period log already exists for this date';
         _isLoading = false;
@@ -80,13 +104,15 @@ class PeriodProvider extends ChangeNotifier {
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         startDate: DateHelpers.startOfDay(date),
         createdAt: DateTime.now(),
+        userEmail: emailToUse,
       );
 
-      await _databaseService.addPeriodLog(log);
-      _periodLogs = _databaseService.getAllPeriodLogs();
+      await _databaseService.addPeriodLog(log, userEmail: emailToUse);
+      _periodLogs = _databaseService.getPeriodLogsForUser(emailToUse);
+
       FileLogger.log(
-          'Period log added for ${DateHelpers.formatLongDate(date)}');
-      await recalculatePrediction();
+          'Period log added for ${DateHelpers.formatLongDate(date)} by $emailToUse');
+      await recalculatePrediction(userEmail: emailToUse);
 
       _isLoading = false;
       notifyListeners();
@@ -99,8 +125,67 @@ class PeriodProvider extends ChangeNotifier {
     }
   }
 
+  /// Update an existing period log
+  Future<void> updatePeriodLog(PeriodLog log) async {
+    try {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+
+      await _databaseService.updatePeriodLog(log);
+
+      // Reload logs for current user
+      if (_currentUserEmail != null) {
+        _periodLogs = _databaseService.getPeriodLogsForUser(_currentUserEmail!);
+      }
+
+      FileLogger.log('Period log updated: ${log.id}');
+      await recalculatePrediction(userEmail: _currentUserEmail);
+
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _error = 'Failed to update period log: $e';
+      _isLoading = false;
+      FileLogger.log('Error updating period log: $e');
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  /// Delete a period log
+  Future<void> deletePeriodLog(String id) async {
+    try {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+
+      await _databaseService.deletePeriodLog(id);
+
+      // Reload logs for current user
+      if (_currentUserEmail != null) {
+        _periodLogs = _databaseService.getPeriodLogsForUser(_currentUserEmail!);
+      }
+
+      FileLogger.log('Period log deleted: $id');
+      await recalculatePrediction(userEmail: _currentUserEmail);
+
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _error = 'Failed to delete period log: $e';
+      _isLoading = false;
+      FileLogger.log('Error deleting period log: $e');
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   /// Manually recalculate prediction
-  Future<void> recalculatePrediction({AppSettings? updatedSettings}) async {
+  Future<void> recalculatePrediction({
+    AppSettings? updatedSettings,
+    String? userEmail,
+  }) async {
     try {
       _isLoading = true;
       _error = null;
@@ -114,8 +199,11 @@ class PeriodProvider extends ChangeNotifier {
         return;
       }
 
-      // Use the provided updated settings if available, otherwise use the existing ones.
+      // Use provided updated settings if available, otherwise use the existing ones.
       final settingsToUse = updatedSettings ?? _settingsProvider.settings;
+
+      // Use provided email or current user email
+      final emailToUse = userEmail ?? _currentUserEmail;
 
       FileLogger.log('[PeriodProvider] Force recalculating prediction...');
       FileLogger.log(
@@ -123,18 +211,22 @@ class PeriodProvider extends ChangeNotifier {
 
       final prediction = await _predictionService.predictNextPeriod(
         chronologicalLogs,
-        settingsToUse, // Pass the correct settings object
+        settingsToUse,
       );
 
-      await _databaseService.savePrediction(prediction);
-      _currentPrediction = prediction;
+      // Add user email to prediction
+      final predictionWithEmail = prediction.copyWith(userEmail: emailToUse);
+
+      await _databaseService.savePrediction(predictionWithEmail,
+          userEmail: emailToUse);
+      _currentPrediction = predictionWithEmail;
 
       FileLogger.log(
-          '[PeriodProvider] New prediction saved: ${DateHelpers.formatLongDate(prediction.predictedDate)}');
+          '[PeriodProvider] New prediction saved for user $emailToUse: ${DateHelpers.formatLongDate(prediction.predictedDate)}');
 
       if (_settingsProvider.notificationsEnabled) {
         await _notificationService.scheduleReminder(
-          prediction,
+          _currentPrediction!,
           _settingsProvider.reminderDaysBefore,
         );
         FileLogger.log(
@@ -152,57 +244,12 @@ class PeriodProvider extends ChangeNotifier {
     }
   }
 
-  // ... [Keep all other methods the same]
-  Future<void> updatePeriodLog(PeriodLog log) async {
-    try {
-      _isLoading = true;
-      _error = null;
-      notifyListeners();
-
-      await _databaseService.updatePeriodLog(log);
-      _periodLogs = _databaseService.getAllPeriodLogs();
-
-      FileLogger.log('Period log updated: ${log.id}');
-      await recalculatePrediction();
-
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _error = 'Failed to update period log: $e';
-      _isLoading = false;
-      FileLogger.log('Error updating period log: $e');
-      notifyListeners();
-      rethrow;
-    }
-  }
-
-  Future<void> deletePeriodLog(String id) async {
-    try {
-      _isLoading = true;
-      _error = null;
-      notifyListeners();
-
-      await _databaseService.deletePeriodLog(id);
-      _periodLogs = _databaseService.getAllPeriodLogs();
-
-      FileLogger.log('Period log deleted: $id');
-      await recalculatePrediction();
-
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _error = 'Failed to delete period log: $e';
-      _isLoading = false;
-      FileLogger.log('Error deleting period log: $e');
-      notifyListeners();
-      rethrow;
-    }
-  }
-
+  /// Check if user has a log on specific date
   bool hasLogOnDate(DateTime date) {
     return _periodLogs.any((log) => DateHelpers.isSameDay(log.startDate, date));
   }
 
+  /// Get log for specific date
   PeriodLog? getLogForDate(DateTime date) {
     try {
       return _periodLogs.firstWhere(
@@ -213,15 +260,18 @@ class PeriodProvider extends ChangeNotifier {
     }
   }
 
+  /// Get cycle statistics
   Map<String, dynamic>? getCycleStats() {
     return _predictionService.calculateCycleStats(chronologicalLogs);
   }
 
+  /// Get days until next period
   int? getDaysUntilNextPeriod() {
     if (_currentPrediction == null) return null;
     return DateHelpers.daysUntil(_currentPrediction!.predictedDate);
   }
 
+  /// Check if date is in predicted range
   bool isPredictedDate(DateTime date) {
     if (_currentPrediction == null) return false;
     final daysFromPredicted =
@@ -229,23 +279,38 @@ class PeriodProvider extends ChangeNotifier {
     return daysFromPredicted <= 2;
   }
 
+  /// Get statistics for current user
   Map<String, dynamic> getStatistics() {
-    return _databaseService.getStatistics();
+    if (_currentUserEmail != null) {
+      return _databaseService.getStatisticsForUser(_currentUserEmail!);
+    }
+    return {
+      'totalLogs': 0,
+      'firstLogDate': null,
+      'lastLogDate': null,
+      'averageCycle': null,
+    };
   }
 
+  /// Clear all data for current user
   Future<void> clearAllData() async {
     try {
       _isLoading = true;
       _error = null;
       notifyListeners();
 
-      await _databaseService.clearAllPeriodLogs();
+      if (_currentUserEmail != null) {
+        await _databaseService.clearUserData(_currentUserEmail!);
+        FileLogger.log('All data cleared for user: $_currentUserEmail');
+      } else {
+        await _databaseService.clearAllPeriodLogs();
+        FileLogger.log('All data cleared');
+      }
+
       await _notificationService.cancelAllReminders();
 
       _periodLogs = [];
       _currentPrediction = null;
-
-      FileLogger.log('All data cleared');
 
       _isLoading = false;
       notifyListeners();
@@ -258,20 +323,25 @@ class PeriodProvider extends ChangeNotifier {
     }
   }
 
+  /// Export data for current user
   Map<String, dynamic> exportData() {
+    if (_currentUserEmail != null) {
+      return _databaseService.exportDataForUser(_currentUserEmail!);
+    }
     return _databaseService.exportData();
   }
 
+  /// Import data for current user
   Future<void> importData(Map<String, dynamic> data) async {
     try {
       _isLoading = true;
       _error = null;
       notifyListeners();
 
-      await _databaseService.importData(data);
-      await init();
+      await _databaseService.importData(data, userEmail: _currentUserEmail);
+      await init(userEmail: _currentUserEmail);
 
-      FileLogger.log('Data imported successfully');
+      FileLogger.log('Data imported successfully for user: $_currentUserEmail');
 
       _isLoading = false;
       notifyListeners();
@@ -284,6 +354,7 @@ class PeriodProvider extends ChangeNotifier {
     }
   }
 
+  /// Test Gemini connection
   Future<bool> testGeminiConnection() async {
     try {
       return await _predictionService.testGeminiConnection();
@@ -293,7 +364,16 @@ class PeriodProvider extends ChangeNotifier {
     }
   }
 
+  /// Refresh provider data for current user
   Future<void> refresh() async {
-    await init();
+    await init(userEmail: _currentUserEmail);
+  }
+
+  /// Clear current user email (call on logout)
+  void clearCurrentUser() {
+    _currentUserEmail = null;
+    _periodLogs = [];
+    _currentPrediction = null;
+    notifyListeners();
   }
 }

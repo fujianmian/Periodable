@@ -315,42 +315,58 @@ class _LoginScreenState extends State<LoginScreen> {
 
     bool success = false;
     if (_isSignupMode) {
-      if (password != _confirmPasswordController.text) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Passwords do not match')),
-        );
-        return;
-      }
       success = await authProvider.signup(email, password);
     } else {
       success = await authProvider.login(email, password);
     }
 
-    if (context.mounted && success) {
-      developer.log(
-          '[LoginScreen] Auth successful for $email. Updating settings...');
-      // Get the SettingsProvider once.
+    // ✅ FIX 1: Exit early if auth failed
+    if (!success || !context.mounted) {
+      return;
+    }
+
+    try {
+      FileLogger.log('[LoginScreen] Auth successful for $email');
+
+      // ✅ FIX 2: Step 1 - Update settings
       final settingsProvider = context.read<SettingsProvider>();
-
-      // Update the email.
       await settingsProvider.updateUserEmail(email);
-      FileLogger.log('[LoginScreen] User email saved to SettingsProvider.');
 
-      // *** THE FIX ***
-      // Get the fresh, updated settings object.
+      // ✅ FIX 3: Step 2 - Get updated settings
       final updatedSettings = settingsProvider.settings;
 
-      // Explicitly pass the updated settings to the recalculation function.
-      FileLogger.log(
-          '[LoginScreen] Triggering prediction recalculation with fresh settings.');
-      await context
-          .read<PeriodProvider>()
-          .recalculatePrediction(updatedSettings: updatedSettings);
+      // ✅ FIX 4: Step 3 - Initialize PeriodProvider WITH USER EMAIL
+      final periodProvider = context.read<PeriodProvider>();
+      await periodProvider.init(userEmail: email); // THIS IS CRITICAL!
 
+      // ✅ FIX 5: Step 4 - Recalculate prediction
+      await periodProvider.recalculatePrediction(
+        updatedSettings: updatedSettings,
+        userEmail: email,
+      );
+
+      if (!context.mounted) return;
+
+      // ✅ FIX 6: Show success for signup
       if (_isSignupMode) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Sign-up successful! Please verify your email')),
+            content: Text('Sign-up successful! Please verify your email'),
+          ),
+        );
+      }
+
+      // ✅ FIX 7: Navigation happens automatically via AppRouter
+      // Don't navigate here - the AuthProvider state change will trigger AppRouter
+    } catch (e) {
+      FileLogger.log('[LoginScreen] Error during post-login setup: $e');
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
