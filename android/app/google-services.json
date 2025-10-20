@@ -23,6 +23,44 @@
           "other_platform_oauth_client": []
         }
       }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:923922157431:android:b83b52be32b8b059a55b72",
+        "android_client_info": {
+          "package_name": "com.periodable.menstrual_cycle_tracker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDLb952Cxdtj_rVHxrl0bh0mlTX_xbLjS0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:923922157431:android:91d0311a91b323f1a55b72",
+        "android_client_info": {
+          "package_name": "com.periodable.menstrualtracker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDLb952Cxdtj_rVHxrl0bh0mlTX_xbLjS0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
     }
   ],
   "configuration_version": "1"

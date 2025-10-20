@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../models/app_settings.dart';
 import '../services/database_service.dart';
 import '../services/notification_service.dart';
+import '../utils/logger.dart';
 import 'dart:developer' as developer;
 
 class SettingsProvider extends ChangeNotifier {
@@ -24,11 +25,11 @@ class SettingsProvider extends ChangeNotifier {
   Future<void> init() async {
     try {
       _settings = _databaseService.getSettings();
-      developer.log(
+      FileLogger.log(
           'Settings loaded: notifications=${_settings.notificationsEnabled}, AI=${_settings.useAIPrediction}, email=${_settings.userEmail}');
       notifyListeners();
     } catch (e) {
-      developer.log('Error loading settings: $e');
+      FileLogger.log('Error loading settings: $e');
     }
   }
 
@@ -37,10 +38,10 @@ class SettingsProvider extends ChangeNotifier {
     try {
       _settings = _settings.copyWith(userEmail: email);
       await _databaseService.saveSettings(_settings);
-      developer.log('User email updated: $email');
+      FileLogger.log('User email updated: $email');
       notifyListeners();
     } catch (e) {
-      developer.log('Error updating user email: $e');
+      FileLogger.log('Error updating user email: $e');
       rethrow;
     }
   }
@@ -50,10 +51,10 @@ class SettingsProvider extends ChangeNotifier {
     try {
       _settings = _settings.copyWith(userEmail: null);
       await _databaseService.saveSettings(_settings);
-      developer.log('User email cleared');
+      FileLogger.log('User email cleared');
       notifyListeners();
     } catch (e) {
-      developer.log('Error clearing user email: $e');
+      FileLogger.log('Error clearing user email: $e');
       rethrow;
     }
   }
@@ -67,14 +68,14 @@ class SettingsProvider extends ChangeNotifier {
       if (!enabled) {
         // Cancel all notifications if disabled
         await _notificationService.cancelAllReminders();
-        developer.log('Notifications disabled, all reminders cancelled');
+        FileLogger.log('Notifications disabled, all reminders cancelled');
       } else {
-        developer.log('Notifications enabled');
+        FileLogger.log('Notifications enabled');
       }
 
       notifyListeners();
     } catch (e) {
-      developer.log('Error toggling notifications: $e');
+      FileLogger.log('Error toggling notifications: $e');
       rethrow;
     }
   }
@@ -89,10 +90,10 @@ class SettingsProvider extends ChangeNotifier {
       _settings = _settings.copyWith(reminderDaysBefore: days);
       await _databaseService.saveSettings(_settings);
 
-      developer.log('Reminder days updated to $days');
+      FileLogger.log('Reminder days updated to $days');
       notifyListeners();
     } catch (e) {
-      developer.log('Error updating reminder days: $e');
+      FileLogger.log('Error updating reminder days: $e');
       rethrow;
     }
   }
@@ -103,10 +104,10 @@ class SettingsProvider extends ChangeNotifier {
       _settings = _settings.copyWith(useAIPrediction: enabled);
       await _databaseService.saveSettings(_settings);
 
-      developer.log('AI prediction ${enabled ? "enabled" : "disabled"}');
+      FileLogger.log('AI prediction ${enabled ? "enabled" : "disabled"}');
       notifyListeners();
     } catch (e) {
-      developer.log('Error toggling AI prediction: $e');
+      FileLogger.log('Error toggling AI prediction: $e');
       rethrow;
     }
   }
@@ -121,10 +122,10 @@ class SettingsProvider extends ChangeNotifier {
       _settings = _settings.copyWith(theme: newTheme);
       await _databaseService.saveSettings(_settings);
 
-      developer.log('Theme changed to $newTheme');
+      FileLogger.log('Theme changed to $newTheme');
       notifyListeners();
     } catch (e) {
-      developer.log('Error changing theme: $e');
+      FileLogger.log('Error changing theme: $e');
       rethrow;
     }
   }
@@ -135,10 +136,10 @@ class SettingsProvider extends ChangeNotifier {
       _settings = _settings.copyWith(firstTimeUser: false);
       await _databaseService.saveSettings(_settings);
 
-      developer.log('Onboarding completed');
+      FileLogger.log('Onboarding completed');
       notifyListeners();
     } catch (e) {
-      developer.log('Error completing onboarding: $e');
+      FileLogger.log('Error completing onboarding: $e');
       rethrow;
     }
   }
@@ -150,7 +151,7 @@ class SettingsProvider extends ChangeNotifier {
       await _databaseService.saveSettings(_settings);
       notifyListeners();
     } catch (e) {
-      developer.log('Error updating last notification time: $e');
+      FileLogger.log('Error updating last notification time: $e');
     }
   }
 
@@ -160,10 +161,10 @@ class SettingsProvider extends ChangeNotifier {
       _settings = AppSettings.defaultSettings();
       await _databaseService.saveSettings(_settings);
 
-      developer.log('Settings reset to defaults');
+      FileLogger.log('Settings reset to defaults');
       notifyListeners();
     } catch (e) {
-      developer.log('Error resetting settings: $e');
+      FileLogger.log('Error resetting settings: $e');
       rethrow;
     }
   }
@@ -175,9 +176,9 @@ class SettingsProvider extends ChangeNotifier {
         title: '🩸 Test Notification',
         body: 'Your notifications are working correctly!',
       );
-      developer.log('Test notification sent');
+      FileLogger.log('Test notification sent');
     } catch (e) {
-      developer.log('Error sending test notification: $e');
+      FileLogger.log('Error sending test notification: $e');
       rethrow;
     }
   }
@@ -187,7 +188,7 @@ class SettingsProvider extends ChangeNotifier {
     try {
       return await _notificationService.areNotificationsEnabled();
     } catch (e) {
-      developer.log('Error checking notification permissions: $e');
+      FileLogger.log('Error checking notification permissions: $e');
       return false;
     }
   }

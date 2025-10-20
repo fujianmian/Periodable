@@ -2,6 +2,7 @@
 
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../utils/constants.dart';
+import '../utils/logger.dart';
 import '../models/period_log.dart';
 import 'dart:developer' as developer;
 
@@ -17,10 +18,10 @@ class GeminiService {
 
   /// Predict next period date using Gemini AI (ALWAYS uses AI, no fallback)
   Future<Map<String, dynamic>?> predictNextPeriod(List<PeriodLog> logs) async {
-    developer.log('[GeminiService] predictNextPeriod has been called.');
+    FileLogger.log('[GeminiService] predictNextPeriod has been called.');
 
     if (logs.isEmpty) {
-      developer.log('[GeminiService] No logs available for AI prediction.');
+      FileLogger.log('[GeminiService] No logs available for AI prediction.');
       return null;
     }
 
@@ -31,14 +32,14 @@ class GeminiService {
       // Build the prompt
       final prompt = _buildPrompt(logs);
 
-      developer.log('[GeminiService] Sending prompt to Gemini API...');
-      developer.log('[GeminiService] PROMPT:\n$prompt'); // Log the full prompt
+      FileLogger.log('[GeminiService] Sending prompt to Gemini API...');
+      FileLogger.log('[GeminiService] PROMPT:\n$prompt'); // Log the full prompt
 
       // Call Gemini API
       final response = await _model.generateContent([Content.text(prompt)]);
 
       if (response.text == null || response.text!.isEmpty) {
-        developer.log('[GeminiService] Empty response from Gemini API');
+        FileLogger.log('[GeminiService] Empty response from Gemini API');
         return null;
       }
 
@@ -49,13 +50,13 @@ class GeminiService {
       final result = _parseGeminiResponse(response.text!, logs.last.startDate);
 
       if (result != null) {
-        developer.log(
+        FileLogger.log(
             '[GeminiService] AI prediction successfully generated: $result');
       }
 
       return result;
     } catch (e) {
-      developer.log('[GeminiService] Error calling Gemini API: $e');
+      FileLogger.log('[GeminiService] Error calling Gemini API: $e');
       rethrow; // Let caller handle the error
     }
   }
@@ -127,7 +128,7 @@ Generate the prediction now:
   Map<String, dynamic>? _parseGeminiResponse(
       String responseText, DateTime lastPeriodDate) {
     try {
-      developer.log('Parsing Gemini response: $responseText');
+      FileLogger.log('Parsing Gemini response: $responseText');
       String cleanedText = responseText.trim();
 
       if (cleanedText.contains('```json')) {
@@ -142,12 +143,12 @@ Generate the prediction now:
       final jsonEnd = cleanedText.lastIndexOf('}');
 
       if (jsonStart == -1 || jsonEnd == -1) {
-        developer.log('ERROR: No JSON object found in response');
+        FileLogger.log('ERROR: No JSON object found in response');
         return null;
       }
 
       final jsonString = cleanedText.substring(jsonStart, jsonEnd + 1);
-      developer.log('Extracted JSON: $jsonString');
+      FileLogger.log('Extracted JSON: $jsonString');
       final predictedDateMatch =
           RegExp(r'"predicted_date"\s*:\s*"([^"]+)"').firstMatch(jsonString);
       final avgCycleMatch =
@@ -160,10 +161,10 @@ Generate the prediction now:
       if (predictedDateMatch == null ||
           avgCycleMatch == null ||
           confidenceMatch == null) {
-        developer.log('ERROR: Missing required fields in JSON');
-        developer.log('Date match: $predictedDateMatch');
-        developer.log('Cycle match: $avgCycleMatch');
-        developer.log('Confidence match: $confidenceMatch');
+        FileLogger.log('ERROR: Missing required fields in JSON');
+        FileLogger.log('Date match: $predictedDateMatch');
+        FileLogger.log('Cycle match: $avgCycleMatch');
+        FileLogger.log('Confidence match: $confidenceMatch');
         return null;
       }
 
@@ -175,12 +176,12 @@ Generate the prediction now:
       final daysSinceLastPeriod =
           predictedDate.difference(lastPeriodDate).inDays;
 
-      developer.log(
+      FileLogger.log(
           'Validation: Days since last period = $daysSinceLastPeriod, min = ${AppConfig.minCycleLength}, max = ${AppConfig.maxCycleLength + 10}');
 
       if (daysSinceLastPeriod < AppConfig.minCycleLength ||
           daysSinceLastPeriod > AppConfig.maxCycleLength + 10) {
-        developer.log(
+        FileLogger.log(
             'WARNING: Predicted date seems unrealistic ($daysSinceLastPeriod days), but returning anyway per AI result');
       }
 
@@ -191,18 +192,18 @@ Generate the prediction now:
         'reasoning': reasoning,
       };
 
-      developer.log('Successfully parsed AI prediction: $result');
+      FileLogger.log('Successfully parsed AI prediction: $result');
       return result;
     } catch (e) {
-      developer.log('ERROR parsing Gemini response: $e');
-      developer.log('Response text was: $responseText');
+      FileLogger.log('ERROR parsing Gemini response: $e');
+      FileLogger.log('Response text was: $responseText');
       return null;
     }
   }
 
   Future<bool> testConnection() async {
     try {
-      developer.log('Testing Gemini API connection...');
+      FileLogger.log('Testing Gemini API connection...');
 
       final response = await _model.generateContent(
           [Content.text('Respond with ONLY the word: SUCCESS')]);
@@ -210,11 +211,11 @@ Generate the prediction now:
       final text = response.text?.toUpperCase().trim() ?? '';
       final isConnected = text.contains('SUCCESS');
 
-      developer.log(
+      FileLogger.log(
           'Gemini connection test result: $isConnected (response: "$text")');
       return isConnected;
     } catch (e) {
-      developer.log('Gemini API connection test FAILED: $e');
+      FileLogger.log('Gemini API connection test FAILED: $e');
       return false;
     }
   }

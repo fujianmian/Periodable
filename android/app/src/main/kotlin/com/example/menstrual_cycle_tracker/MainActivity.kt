@@ -1,4 +1,4 @@
-package com.example.menstrual_cycle_tracker
+package com.periodable.menstrual_cycle_tracker
 
 import io.flutter.embedding.android.FlutterActivity
 

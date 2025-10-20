@@ -3,6 +3,7 @@ import '../models/period_log.dart';
 import '../models/prediction_data.dart';
 import '../models/app_settings.dart';
 import '../utils/constants.dart';
+import '../utils/logger.dart';
 import 'dart:developer' as developer;
 
 class DatabaseService {
@@ -37,15 +38,15 @@ class DatabaseService {
           await Hive.openBox<PredictionData>(AppConfig.predictionBoxName);
       _settingsBox = await Hive.openBox<AppSettings>(AppConfig.settingsBoxName);
 
-      developer.log('Database initialized successfully');
+      FileLogger.log('Database initialized successfully');
 
       // Initialize default settings if first time
       if (_settingsBox!.isEmpty) {
         await saveSettings(AppSettings.defaultSettings());
-        developer.log('Default settings created');
+        FileLogger.log('Default settings created');
       }
     } catch (e) {
-      developer.log('Error initializing database: $e');
+      FileLogger.log('Error initializing database: $e');
       rethrow;
     }
   }
@@ -56,9 +57,9 @@ class DatabaseService {
   Future<void> addPeriodLog(PeriodLog log) async {
     try {
       await _periodBox!.put(log.id, log);
-      developer.log('Period log added: ${log.startDate}');
+      FileLogger.log('Period log added: ${log.startDate}');
     } catch (e) {
-      developer.log('Error adding period log: $e');
+      FileLogger.log('Error adding period log: $e');
       rethrow;
     }
   }
@@ -70,7 +71,7 @@ class DatabaseService {
       logs.sort((a, b) => b.startDate.compareTo(a.startDate)); // Newest first
       return logs;
     } catch (e) {
-      developer.log('Error getting period logs: $e');
+      FileLogger.log('Error getting period logs: $e');
       return [];
     }
   }
@@ -82,7 +83,7 @@ class DatabaseService {
       logs.sort((a, b) => a.startDate.compareTo(b.startDate)); // Oldest first
       return logs;
     } catch (e) {
-      developer.log('Error getting chronological period logs: $e');
+      FileLogger.log('Error getting chronological period logs: $e');
       return [];
     }
   }
@@ -107,9 +108,9 @@ class DatabaseService {
     try {
       log.updatedAt = DateTime.now();
       await _periodBox!.put(log.id, log);
-      developer.log('Period log updated: ${log.startDate}');
+      FileLogger.log('Period log updated: ${log.startDate}');
     } catch (e) {
-      developer.log('Error updating period log: $e');
+      FileLogger.log('Error updating period log: $e');
       rethrow;
     }
   }
@@ -118,9 +119,9 @@ class DatabaseService {
   Future<void> deletePeriodLog(String id) async {
     try {
       await _periodBox!.delete(id);
-      developer.log('Period log deleted: $id');
+      FileLogger.log('Period log deleted: $id');
     } catch (e) {
-      developer.log('Error deleting period log: $e');
+      FileLogger.log('Error deleting period log: $e');
       rethrow;
     }
   }
@@ -139,7 +140,7 @@ class DatabaseService {
             log.startDate.isBefore(end.add(const Duration(days: 1)));
       }).toList();
     } catch (e) {
-      developer.log('Error getting period logs by date range: $e');
+      FileLogger.log('Error getting period logs by date range: $e');
       return [];
     }
   }
@@ -162,9 +163,9 @@ class DatabaseService {
       // We only keep the latest prediction
       await _predictionBox!.clear();
       await _predictionBox!.add(prediction);
-      developer.log('Prediction saved: ${prediction.predictedDate}');
+      FileLogger.log('Prediction saved: ${prediction.predictedDate}');
     } catch (e) {
-      developer.log('Error saving prediction: $e');
+      FileLogger.log('Error saving prediction: $e');
       rethrow;
     }
   }
@@ -175,7 +176,7 @@ class DatabaseService {
       if (_predictionBox!.isEmpty) return null;
       return _predictionBox!.values.first;
     } catch (e) {
-      developer.log('Error getting prediction: $e');
+      FileLogger.log('Error getting prediction: $e');
       return null;
     }
   }
@@ -184,9 +185,9 @@ class DatabaseService {
   Future<void> deletePrediction() async {
     try {
       await _predictionBox!.clear();
-      developer.log('Prediction deleted');
+      FileLogger.log('Prediction deleted');
     } catch (e) {
-      developer.log('Error deleting prediction: $e');
+      FileLogger.log('Error deleting prediction: $e');
       rethrow;
     }
   }
@@ -198,9 +199,9 @@ class DatabaseService {
     try {
       await _settingsBox!.clear();
       await _settingsBox!.add(settings);
-      developer.log('Settings saved');
+      FileLogger.log('Settings saved');
     } catch (e) {
-      developer.log('Error saving settings: $e');
+      FileLogger.log('Error saving settings: $e');
       rethrow;
     }
   }
@@ -213,7 +214,7 @@ class DatabaseService {
       }
       return _settingsBox!.values.first;
     } catch (e) {
-      developer.log('Error getting settings: $e');
+      FileLogger.log('Error getting settings: $e');
       return AppSettings.defaultSettings();
     }
   }
@@ -230,9 +231,9 @@ class DatabaseService {
     try {
       await _periodBox!.clear();
       await _predictionBox!.clear();
-      developer.log('All period logs cleared');
+      FileLogger.log('All period logs cleared');
     } catch (e) {
-      developer.log('Error clearing period logs: $e');
+      FileLogger.log('Error clearing period logs: $e');
       rethrow;
     }
   }
@@ -247,7 +248,7 @@ class DatabaseService {
         'exportedAt': DateTime.now().toIso8601String(),
       };
     } catch (e) {
-      developer.log('Error exporting data: $e');
+      FileLogger.log('Error exporting data: $e');
       rethrow;
     }
   }
@@ -278,9 +279,9 @@ class DatabaseService {
         await saveSettings(settings);
       }
 
-      developer.log('Data imported successfully');
+      FileLogger.log('Data imported successfully');
     } catch (e) {
-      developer.log('Error importing data: $e');
+      FileLogger.log('Error importing data: $e');
       rethrow;
     }
   }
@@ -290,7 +291,7 @@ class DatabaseService {
     await _periodBox?.close();
     await _predictionBox?.close();
     await _settingsBox?.close();
-    developer.log('Database closed');
+    FileLogger.log('Database closed');
   }
 
   /// Get database statistics

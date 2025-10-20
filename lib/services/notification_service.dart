@@ -3,6 +3,7 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tz;
 import '../models/prediction_data.dart';
 import '../utils/constants.dart';
+import '../utils/logger.dart';
 import '../utils/date_helpers.dart';
 import 'dart:developer' as developer;
 
@@ -50,9 +51,9 @@ class NotificationService {
       await _requestPermissions();
 
       _initialized = true;
-      developer.log('Notification service initialized');
+      FileLogger.log('Notification service initialized');
     } catch (e) {
-      developer.log('Error initializing notifications: $e');
+      FileLogger.log('Error initializing notifications: $e');
       rethrow;
     }
   }
@@ -88,7 +89,7 @@ class NotificationService {
 
   /// Handle notification tap
   void _onNotificationTapped(NotificationResponse response) {
-    developer.log('Notification tapped: ${response.payload}');
+    FileLogger.log('Notification tapped: ${response.payload}');
   }
 
   /// Schedule a reminder notification with fallback
@@ -108,7 +109,7 @@ class NotificationService {
 
       // Don't schedule if date is in the past
       if (notificationDate.isBefore(DateTime.now())) {
-        developer.log('Notification date is in the past, skipping');
+        FileLogger.log('Notification date is in the past, skipping');
         return;
       }
 
@@ -168,10 +169,10 @@ class NotificationService {
           payload: 'period_reminder',
         );
 
-        developer.log(
+        FileLogger.log(
             'Reminder scheduled (EXACT) for ${DateHelpers.formatLongDate(notificationDate)} at 9:00 AM');
       } catch (e) {
-        developer.log('Exact alarm failed, falling back to inexact: $e');
+        FileLogger.log('Exact alarm failed, falling back to inexact: $e');
 
         // Fallback to inexact alarms if exact fails
         await _notifications.zonedSchedule(
@@ -185,11 +186,11 @@ class NotificationService {
           payload: 'period_reminder',
         );
 
-        developer.log(
+        FileLogger.log(
             'Reminder scheduled (INEXACT) for ${DateHelpers.formatLongDate(notificationDate)} at 9:00 AM');
       }
     } catch (e) {
-      developer.log('Error scheduling reminder: $e');
+      FileLogger.log('Error scheduling reminder: $e');
       rethrow;
     }
   }
@@ -198,9 +199,9 @@ class NotificationService {
   Future<void> cancelAllReminders() async {
     try {
       await _notifications.cancelAll();
-      developer.log('All reminders cancelled');
+      FileLogger.log('All reminders cancelled');
     } catch (e) {
-      developer.log('Error cancelling reminders: $e');
+      FileLogger.log('Error cancelling reminders: $e');
       rethrow;
     }
   }
@@ -209,9 +210,9 @@ class NotificationService {
   Future<void> cancelReminder(int id) async {
     try {
       await _notifications.cancel(id);
-      developer.log('Reminder $id cancelled');
+      FileLogger.log('Reminder $id cancelled');
     } catch (e) {
-      developer.log('Error cancelling reminder: $e');
+      FileLogger.log('Error cancelling reminder: $e');
       rethrow;
     }
   }
@@ -254,7 +255,7 @@ class NotificationService {
       payload: 'test',
     );
 
-    developer.log('Immediate notification shown');
+    FileLogger.log('Immediate notification shown');
   }
 
   /// Get pending notifications

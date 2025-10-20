@@ -9,6 +9,7 @@ import '../services/prediction_service.dart';
 import '../services/notification_service.dart';
 import '../providers/settings_provider.dart';
 import '../utils/date_helpers.dart';
+import '../utils/logger.dart';
 import 'dart:developer' as developer;
 
 class PeriodProvider extends ChangeNotifier {
@@ -48,14 +49,14 @@ class PeriodProvider extends ChangeNotifier {
       notifyListeners();
       _periodLogs = _databaseService.getAllPeriodLogs();
       _currentPrediction = _databaseService.getLatestPrediction();
-      developer.log(
+      FileLogger.log(
           '[PeriodProvider] Initialized: ${_periodLogs.length} logs loaded.');
       _isLoading = false;
       notifyListeners();
     } catch (e) {
       _error = 'Failed to load data: $e';
       _isLoading = false;
-      developer.log('[PeriodProvider] Error initializing: $e');
+      FileLogger.log('[PeriodProvider] Error initializing: $e');
       notifyListeners();
     }
   }
@@ -83,7 +84,8 @@ class PeriodProvider extends ChangeNotifier {
 
       await _databaseService.addPeriodLog(log);
       _periodLogs = _databaseService.getAllPeriodLogs();
-      developer.log('Period log added for ${DateHelpers.formatLongDate(date)}');
+      FileLogger.log(
+          'Period log added for ${DateHelpers.formatLongDate(date)}');
       await recalculatePrediction();
 
       _isLoading = false;
@@ -91,7 +93,7 @@ class PeriodProvider extends ChangeNotifier {
     } catch (e) {
       _error = 'Failed to add period log: $e';
       _isLoading = false;
-      developer.log('Error adding period log: $e');
+      FileLogger.log('Error adding period log: $e');
       notifyListeners();
       rethrow;
     }
@@ -105,7 +107,7 @@ class PeriodProvider extends ChangeNotifier {
       notifyListeners();
 
       if (_periodLogs.isEmpty) {
-        developer.log(
+        FileLogger.log(
             '[PeriodProvider] Recalculation skipped: No period logs available.');
         _isLoading = false;
         notifyListeners();
@@ -115,8 +117,8 @@ class PeriodProvider extends ChangeNotifier {
       // Use the provided updated settings if available, otherwise use the existing ones.
       final settingsToUse = updatedSettings ?? _settingsProvider.settings;
 
-      developer.log('[PeriodProvider] Force recalculating prediction...');
-      developer.log(
+      FileLogger.log('[PeriodProvider] Force recalculating prediction...');
+      FileLogger.log(
           '[PeriodProvider] Settings being used for prediction: userEmail=${settingsToUse.userEmail}, useAI=${settingsToUse.useAIPrediction}');
 
       final prediction = await _predictionService.predictNextPeriod(
@@ -127,7 +129,7 @@ class PeriodProvider extends ChangeNotifier {
       await _databaseService.savePrediction(prediction);
       _currentPrediction = prediction;
 
-      developer.log(
+      FileLogger.log(
           '[PeriodProvider] New prediction saved: ${DateHelpers.formatLongDate(prediction.predictedDate)}');
 
       if (_settingsProvider.notificationsEnabled) {
@@ -135,7 +137,7 @@ class PeriodProvider extends ChangeNotifier {
           prediction,
           _settingsProvider.reminderDaysBefore,
         );
-        developer.log(
+        FileLogger.log(
             '[PeriodProvider] Reminder scheduled for ${_settingsProvider.reminderDaysBefore} days before');
       }
 
@@ -144,7 +146,7 @@ class PeriodProvider extends ChangeNotifier {
     } catch (e) {
       _error = 'Failed to recalculate prediction: $e';
       _isLoading = false;
-      developer.log('[PeriodProvider] Error recalculating prediction: $e');
+      FileLogger.log('[PeriodProvider] Error recalculating prediction: $e');
       notifyListeners();
       rethrow;
     }
@@ -160,7 +162,7 @@ class PeriodProvider extends ChangeNotifier {
       await _databaseService.updatePeriodLog(log);
       _periodLogs = _databaseService.getAllPeriodLogs();
 
-      developer.log('Period log updated: ${log.id}');
+      FileLogger.log('Period log updated: ${log.id}');
       await recalculatePrediction();
 
       _isLoading = false;
@@ -168,7 +170,7 @@ class PeriodProvider extends ChangeNotifier {
     } catch (e) {
       _error = 'Failed to update period log: $e';
       _isLoading = false;
-      developer.log('Error updating period log: $e');
+      FileLogger.log('Error updating period log: $e');
       notifyListeners();
       rethrow;
     }
@@ -183,7 +185,7 @@ class PeriodProvider extends ChangeNotifier {
       await _databaseService.deletePeriodLog(id);
       _periodLogs = _databaseService.getAllPeriodLogs();
 
-      developer.log('Period log deleted: $id');
+      FileLogger.log('Period log deleted: $id');
       await recalculatePrediction();
 
       _isLoading = false;
@@ -191,7 +193,7 @@ class PeriodProvider extends ChangeNotifier {
     } catch (e) {
       _error = 'Failed to delete period log: $e';
       _isLoading = false;
-      developer.log('Error deleting period log: $e');
+      FileLogger.log('Error deleting period log: $e');
       notifyListeners();
       rethrow;
     }
@@ -243,14 +245,14 @@ class PeriodProvider extends ChangeNotifier {
       _periodLogs = [];
       _currentPrediction = null;
 
-      developer.log('All data cleared');
+      FileLogger.log('All data cleared');
 
       _isLoading = false;
       notifyListeners();
     } catch (e) {
       _error = 'Failed to clear data: $e';
       _isLoading = false;
-      developer.log('Error clearing data: $e');
+      FileLogger.log('Error clearing data: $e');
       notifyListeners();
       rethrow;
     }
@@ -269,14 +271,14 @@ class PeriodProvider extends ChangeNotifier {
       await _databaseService.importData(data);
       await init();
 
-      developer.log('Data imported successfully');
+      FileLogger.log('Data imported successfully');
 
       _isLoading = false;
       notifyListeners();
     } catch (e) {
       _error = 'Failed to import data: $e';
       _isLoading = false;
-      developer.log('Error importing data: $e');
+      FileLogger.log('Error importing data: $e');
       notifyListeners();
       rethrow;
     }
@@ -286,7 +288,7 @@ class PeriodProvider extends ChangeNotifier {
     try {
       return await _predictionService.testGeminiConnection();
     } catch (e) {
-      developer.log('Error testing Gemini connection: $e');
+      FileLogger.log('Error testing Gemini connection: $e');
       return false;
     }
   }

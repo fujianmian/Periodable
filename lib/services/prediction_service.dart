@@ -4,6 +4,7 @@ import '../models/period_log.dart';
 import '../models/prediction_data.dart';
 import '../models/app_settings.dart';
 import '../utils/constants.dart';
+import '../utils/logger.dart';
 import 'gemini_service.dart';
 import 'dart:developer' as developer;
 
@@ -25,7 +26,7 @@ class PredictionService {
     List<PeriodLog> logs,
     AppSettings settings,
   ) async {
-    developer.log('[PredictionService] predictNextPeriod called.');
+    FileLogger.log('[PredictionService] predictNextPeriod called.');
 
     if (logs.isEmpty) {
       throw Exception('No period logs available for prediction');
@@ -33,12 +34,12 @@ class PredictionService {
 
     logs.sort((a, b) => a.startDate.compareTo(b.startDate));
 
-    developer.log(
+    FileLogger.log(
         '[PredictionService] Settings received: userEmail=${settings.userEmail}, useAI=${settings.useAIPrediction}');
 
     final isPremiumUser = _isPremiumUser(settings);
 
-    developer.log(
+    FileLogger.log(
         '[PredictionService] isPremiumUser check returned: $isPremiumUser');
 
     if (isPremiumUser) {
@@ -54,18 +55,18 @@ class PredictionService {
     final result = settings.useAIPrediction &&
         email != null &&
         PREMIUM_USER_EMAILS.contains(email.toLowerCase());
-    developer.log(
+    FileLogger.log(
         '[PredictionService] _isPremiumUser check: useAI=${settings.useAIPrediction}, email=${settings.userEmail}, result=$result');
     return result;
   }
 
   /// AI-powered prediction
   Future<PredictionData> _predictWithAI(List<PeriodLog> logs) async {
-    developer.log('-----> [PredictionService] Path selected: _predictWithAI');
+    FileLogger.log('-----> [PredictionService] Path selected: _predictWithAI');
 
     if (AppConfig.geminiApiKey.isEmpty ||
         AppConfig.geminiApiKey == 'YOUR_GEMINI_API_KEY_HERE') {
-      developer.log(
+      FileLogger.log(
           '[PredictionService] AI prediction failed: Gemini API key not configured.');
       throw Exception(
           'Gemini API key not configured. Please check your .env file or Remote Config.');
@@ -79,7 +80,7 @@ class PredictionService {
             'Gemini API returned null. Check your API key and internet connection.');
       }
 
-      developer.log(
+      FileLogger.log(
           '[PredictionService] AI prediction successful: ${aiResult['predicted_date']}');
 
       return PredictionData(
@@ -90,14 +91,14 @@ class PredictionService {
         reasoning: aiResult['reasoning'],
       );
     } catch (e) {
-      developer.log('[PredictionService] AI prediction failed: $e');
+      FileLogger.log('[PredictionService] AI prediction failed: $e');
       rethrow;
     }
   }
 
   /// Local prediction (no AI required)
   Future<PredictionData> _predictLocally(List<PeriodLog> logs) async {
-    developer.log('-----> [PredictionService] Path selected: _predictLocally');
+    FileLogger.log('-----> [PredictionService] Path selected: _predictLocally');
 
     final cycleStats = calculateCycleStats(logs);
 
@@ -246,13 +247,13 @@ class PredictionService {
   Future<bool> testGeminiConnection() async {
     if (AppConfig.geminiApiKey.isEmpty ||
         AppConfig.geminiApiKey == 'YOUR_GEMINI_API_KEY_HERE') {
-      developer.log('Gemini API key not configured');
+      FileLogger.log('Gemini API key not configured');
       return false;
     }
     try {
       return await _geminiService.testConnection();
     } catch (e) {
-      developer.log('Gemini connection test failed: $e');
+      FileLogger.log('Gemini connection test failed: $e');
       return false;
     }
   }

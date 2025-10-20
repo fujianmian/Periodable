@@ -8,15 +8,8 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
-def keystorePropertiesFile = rootProject.file("key.properties")
-def keystoreProperties = new Properties()
-if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-}
-
-
 android {
-    namespace = "com.example.menstrual_cycle_tracker"
+    namespace = "com.periodable.menstrual_cycle_tracker"
     compileSdk = 35
     ndkVersion = "25.1.8937393"
 
@@ -25,50 +18,52 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    // ADD THIS BLOCK
+
     kotlin {
         jvmToolchain(17)
     }
 
+    // ✅ Release signing configuration (uses your gradle.properties values)
     signingConfigs {
         release {
-            keyAlias keystoreProperties['keyAlias']
-            keyPassword keystoreProperties['keyPassword']
-            storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
-            storePassword keystoreProperties['storePassword']
+            if (project.hasProperty("MYAPP_UPLOAD_STORE_FILE")) {
+                storeFile file(MYAPP_UPLOAD_STORE_FILE)
+                storePassword MYAPP_UPLOAD_STORE_PASSWORD
+                keyAlias MYAPP_UPLOAD_KEY_ALIAS
+                keyPassword MYAPP_UPLOAD_KEY_PASSWORD
+            }
         }
     }
 
+    // ✅ Build types: one section only
     buildTypes {
         release {
+            // Use your real release keystore
+            signingConfig signingConfigs.release
+
+            // Optional optimizations (can disable if you face shrink issues)
             minifyEnabled true
             shrinkResources true
-            signingConfig signingConfigs.release
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
+
+        debug {
+            // Keep default debug signing for development
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    defaultConfig {
+        // ⚙️ Make sure this is your final package name
+        applicationId = "com.periodable.menstrual_cycle_tracker"
+        minSdk = 23
+        targetSdk = 35
+        versionCode = 3
+        versionName = '1.0.2'
     }
 
     kotlinOptions {
         jvmTarget = '17'
-    }
-
-    defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.menstrual_cycle_tracker"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 23
-        targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
-    }
-
-    buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.debug
-        }
     }
 }
 
@@ -76,9 +71,7 @@ flutter {
     source = "../.."
 }
 
-
-// In android/app/build.gradle
-
+// ✅ Dependencies
 dependencies {
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
 }

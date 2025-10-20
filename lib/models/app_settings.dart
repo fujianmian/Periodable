@@ -23,7 +23,7 @@ class AppSettings extends HiveObject {
   bool useAIPrediction;
 
   @HiveField(6)
-  String? userEmail; // NEW: Store user email for premium detection
+  String? userEmail;
 
   AppSettings({
     this.notificationsEnabled = true,
@@ -32,7 +32,7 @@ class AppSettings extends HiveObject {
     this.firstTimeUser = true,
     this.lastNotificationTime,
     this.useAIPrediction = true,
-    this.userEmail, // NEW
+    this.userEmail,
   });
 
   factory AppSettings.defaultSettings() {
@@ -42,7 +42,7 @@ class AppSettings extends HiveObject {
       theme: 'light',
       firstTimeUser: true,
       useAIPrediction: true,
-      userEmail: null, // NEW
+      userEmail: null,
     );
   }
 
@@ -53,7 +53,7 @@ class AppSettings extends HiveObject {
     bool? firstTimeUser,
     DateTime? lastNotificationTime,
     bool? useAIPrediction,
-    String? userEmail, // NEW
+    String? userEmail,
   }) {
     return AppSettings(
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
@@ -62,7 +62,7 @@ class AppSettings extends HiveObject {
       firstTimeUser: firstTimeUser ?? this.firstTimeUser,
       lastNotificationTime: lastNotificationTime ?? this.lastNotificationTime,
       useAIPrediction: useAIPrediction ?? this.useAIPrediction,
-      userEmail: userEmail ?? this.userEmail, // NEW
+      userEmail: userEmail ?? this.userEmail,
     );
   }
 
@@ -74,7 +74,7 @@ class AppSettings extends HiveObject {
       'firstTimeUser': firstTimeUser,
       'lastNotificationTime': lastNotificationTime?.toIso8601String(),
       'useAIPrediction': useAIPrediction,
-      'userEmail': userEmail, // NEW
+      'userEmail': userEmail,
     };
   }
 
@@ -88,7 +88,7 @@ class AppSettings extends HiveObject {
           ? DateTime.parse(json['lastNotificationTime'])
           : null,
       useAIPrediction: json['useAIPrediction'] ?? true,
-      userEmail: json['userEmail'], // NEW
+      userEmail: json['userEmail'],
     );
   }
 }

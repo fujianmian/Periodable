@@ -40,6 +40,7 @@ dependencies:
   firebase_app_check: ^0.4.1+1
   flutter_secure_storage: ^9.2.2
   firebase_remote_config: ^6.1.0
+  firebase_analytics: ^12.0.3
   # Local Database
   hive: ^2.2.3
   hive_flutter: ^1.1.0

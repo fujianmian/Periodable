@@ -28,9 +28,17 @@ class FeedbackDialog {
                 const SizedBox(height: 16),
                 _buildMessageInput(feedbackController),
                 const SizedBox(height: 16),
-                _buildImageSection(selectedImage, setState),
+                _buildImageSection(selectedImage, setState, (File? f) {
+                  setState(() {
+                    selectedImage = f;
+                  });
+                }),
                 const SizedBox(height: 12),
-                _buildImagePickerButtons(setState),
+                _buildImagePickerButtons(setState, (File? f) {
+                  setState(() {
+                    selectedImage = f;
+                  });
+                }),
               ],
             ),
           ),
@@ -77,7 +85,8 @@ class FeedbackDialog {
     );
   }
 
-  static Widget _buildImageSection(File? selectedImage, StateSetter setState) {
+  static Widget _buildImageSection(File? selectedImage, StateSetter setState,
+      ValueChanged<File?> onImageChanged) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -87,14 +96,15 @@ class FeedbackDialog {
         ),
         const SizedBox(height: 12),
         if (selectedImage != null)
-          _buildSelectedImage(selectedImage, setState)
+          _buildSelectedImage(selectedImage, setState, onImageChanged)
         else
           _buildPlaceholderImage(),
       ],
     );
   }
 
-  static Widget _buildSelectedImage(File selectedImage, StateSetter setState) {
+  static Widget _buildSelectedImage(File selectedImage, StateSetter setState,
+      ValueChanged<File?> onImageChanged) {
     return Stack(
       children: [
         Container(
@@ -113,9 +123,9 @@ class FeedbackDialog {
           right: 4,
           child: GestureDetector(
             onTap: () {
-              setState(() {
-                selectedImage == null; // Clear image
-              });
+              // Inform parent to clear the captured variable and refresh UI
+              onImageChanged(null);
+              setState(() {});
             },
             child: Container(
               decoration: const BoxDecoration(
@@ -153,29 +163,46 @@ class FeedbackDialog {
     );
   }
 
-  static Widget _buildImagePickerButtons(StateSetter setState) {
+  static Widget _buildImagePickerButtons(
+      StateSetter setState, ValueChanged<File?> onImageChanged) {
     return Row(
       children: [
         Expanded(
-          child: ElevatedButton.icon(
-            onPressed: () => _pickImage(ImageSource.gallery, setState),
-            icon: const Icon(Icons.photo_library),
-            label: const Text('Gallery'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary.withOpacity(0.8),
-              foregroundColor: Colors.white,
+          child: Container(
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: IconButton(
+              onPressed: () async {
+                final file = await _pickImage(ImageSource.gallery);
+                onImageChanged(file);
+                setState(() {});
+              },
+              icon: const Icon(Icons.photo_library),
+              color: AppColors.primary,
+              tooltip: 'Pick from gallery',
             ),
           ),
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: ElevatedButton.icon(
-            onPressed: () => _pickImage(ImageSource.camera, setState),
-            icon: const Icon(Icons.camera_alt),
-            label: const Text('Camera'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary.withOpacity(0.8),
-              foregroundColor: Colors.white,
+          child: Container(
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: IconButton(
+              onPressed: () async {
+                final file = await _pickImage(ImageSource.camera);
+                onImageChanged(file);
+                setState(() {});
+              },
+              icon: const Icon(Icons.camera_alt),
+              color: AppColors.primary,
+              tooltip: 'Open camera',
             ),
           ),
         ),
@@ -183,15 +210,13 @@ class FeedbackDialog {
     );
   }
 
-  static Future<void> _pickImage(
-      ImageSource source, StateSetter setState) async {
+  static Future<File?> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: source);
     if (pickedFile != null) {
-      setState(() {
-        // Update selectedImage in parent StatefulBuilder
-      });
+      return File(pickedFile.path);
     }
+    return null;
   }
 
   static Future<void> _handleSendFeedback(

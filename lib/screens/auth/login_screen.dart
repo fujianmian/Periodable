@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/period_provider.dart';
 import '../../utils/constants.dart';
+import '../../utils/logger.dart';
 import '../../providers/settings_provider.dart';
 import 'dart:developer' as developer;
 
@@ -333,14 +334,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
       // Update the email.
       await settingsProvider.updateUserEmail(email);
-      developer.log('[LoginScreen] User email saved to SettingsProvider.');
+      FileLogger.log('[LoginScreen] User email saved to SettingsProvider.');
 
       // *** THE FIX ***
       // Get the fresh, updated settings object.
       final updatedSettings = settingsProvider.settings;
 
       // Explicitly pass the updated settings to the recalculation function.
-      developer.log(
+      FileLogger.log(
           '[LoginScreen] Triggering prediction recalculation with fresh settings.');
       await context
           .read<PeriodProvider>()
