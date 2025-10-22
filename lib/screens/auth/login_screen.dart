@@ -3,11 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/period_provider.dart';
+
 import '../../utils/constants.dart';
-import '../../utils/logger.dart';
-import '../../providers/settings_provider.dart';
-import 'dart:developer' as developer;
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -67,11 +64,10 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // ... [Keep all the _build... methods the same]
   Widget _buildHeader() {
     return Column(
       children: [
-        Icon(
+        const Icon(
           Icons.favorite_rounded,
           size: 64,
           color: AppColors.primary,
@@ -313,62 +309,10 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    bool success = false;
     if (_isSignupMode) {
-      success = await authProvider.signup(email, password);
+      await authProvider.signup(email, password);
     } else {
-      success = await authProvider.login(email, password);
-    }
-
-    // ✅ FIX 1: Exit early if auth failed
-    if (!success || !context.mounted) {
-      return;
-    }
-
-    try {
-      FileLogger.log('[LoginScreen] Auth successful for $email');
-
-      // ✅ FIX 2: Step 1 - Update settings
-      final settingsProvider = context.read<SettingsProvider>();
-      await settingsProvider.updateUserEmail(email);
-
-      // ✅ FIX 3: Step 2 - Get updated settings
-      final updatedSettings = settingsProvider.settings;
-
-      // ✅ FIX 4: Step 3 - Initialize PeriodProvider WITH USER EMAIL
-      final periodProvider = context.read<PeriodProvider>();
-      await periodProvider.init(userEmail: email); // THIS IS CRITICAL!
-
-      // ✅ FIX 5: Step 4 - Recalculate prediction
-      await periodProvider.recalculatePrediction(
-        updatedSettings: updatedSettings,
-        userEmail: email,
-      );
-
-      if (!context.mounted) return;
-
-      // ✅ FIX 6: Show success for signup
-      if (_isSignupMode) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Sign-up successful! Please verify your email'),
-          ),
-        );
-      }
-
-      // ✅ FIX 7: Navigation happens automatically via AppRouter
-      // Don't navigate here - the AuthProvider state change will trigger AppRouter
-    } catch (e) {
-      FileLogger.log('[LoginScreen] Error during post-login setup: $e');
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      await authProvider.login(email, password);
     }
   }
 }

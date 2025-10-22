@@ -11,12 +11,14 @@ import '../providers/settings_provider.dart';
 import '../utils/date_helpers.dart';
 import '../utils/logger.dart';
 import 'dart:developer' as developer;
+import './auth_provider.dart';
 
 class PeriodProvider extends ChangeNotifier {
   final DatabaseService _databaseService = DatabaseService();
   final PredictionService _predictionService = PredictionService();
   final NotificationService _notificationService = NotificationService();
   SettingsProvider _settingsProvider;
+  AuthProvider _authProvider;
 
   List<PeriodLog> _periodLogs = [];
   PredictionData? _currentPrediction;
@@ -24,7 +26,7 @@ class PeriodProvider extends ChangeNotifier {
   String? _error;
   String? _currentUserEmail; // Track current user
 
-  PeriodProvider(this._settingsProvider);
+  PeriodProvider(this._settingsProvider, this._authProvider);
 
   // Getters
   List<PeriodLog> get periodLogs => _periodLogs;
@@ -33,8 +35,10 @@ class PeriodProvider extends ChangeNotifier {
   String? get error => _error;
   String? get currentUserEmail => _currentUserEmail;
 
-  void updateDependencies(SettingsProvider newSettingsProvider) {
+  void updateDependencies(
+      SettingsProvider newSettingsProvider, AuthProvider newAuthProvider) {
     _settingsProvider = newSettingsProvider;
+    _authProvider = newAuthProvider;
   }
 
   List<PeriodLog> get chronologicalLogs {

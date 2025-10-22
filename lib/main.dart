@@ -1,6 +1,5 @@
 // lib/main.dart
 
-// No changes to your imports, they are perfect.
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/material.dart';
@@ -22,36 +21,28 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
-import 'screens/auth/email_verification_screen.dart'; // Import the new screen
-
-// lib/main.dart
+import 'screens/auth/email_verification_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Set device orientation before anything else
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
-  // --- Start of Changes ---
-
-  // 1. Initialize Firebase FIRST
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
     await FirebaseAppCheck.instance.activate(
       androidProvider: AndroidProvider.playIntegrity,
-      // appleProvider: AppleProvider.appAttest,
     );
     debugPrint('✓ Firebase and App Check initialized successfully');
   } catch (e) {
     debugPrint('✗ Firebase initialization error: $e');
   }
 
-  // 2. Initialize AppConfig SECOND (now that Firebase is ready)
   try {
     await AppConfig.initialize();
     debugPrint('✓ AppConfig initialized successfully');
@@ -59,9 +50,6 @@ void main() async {
     debugPrint('✗ AppConfig initialization error: $e');
   }
 
-  // --- End of Changes ---
-
-  // Initialize other services
   try {
     final databaseService = DatabaseService();
     await databaseService.init();
@@ -90,12 +78,21 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) => SettingsProvider()..init(),
         ),
-        ChangeNotifierProxyProvider<SettingsProvider, PeriodProvider>(
+        ChangeNotifierProxyProvider<AuthProvider, PeriodProvider>(
           create: (context) => PeriodProvider(
-            context.read<SettingsProvider>(),
-          )..init(),
-          update: (context, settings, previousPeriodProvider) {
-            previousPeriodProvider!.updateDependencies(settings);
+            context.read<SettingsProvider>(), // Initial settings
+            context.read<AuthProvider>(), // Initial auth
+          )..init(), // Initial general init
+          update: (context, auth, previousPeriodProvider) {
+            // Update dependencies AND trigger user-specific init on auth change
+            previousPeriodProvider!.updateDependencies(
+              context.read<SettingsProvider>(),
+              auth, // Pass the latest AuthProvider state
+            );
+            // If auth state changes (login/logout), re-initialize PeriodProvider
+            if (auth.currentUser != previousPeriodProvider.currentUserEmail) {
+              previousPeriodProvider.init(userEmail: auth.currentUser?.email);
+            }
             return previousPeriodProvider;
           },
         ),
@@ -119,12 +116,11 @@ class MyApp extends StatelessWidget {
                 backgroundColor: Colors.transparent,
               ),
             ),
-            home: const AppRouter(), // This remains the entry point
+            home: const AppRouter(),
             routes: {
               '/login': (context) => const LoginScreen(),
               '/home': (context) => const MainScreen(),
               '/settings': (context) => const SettingsScreen(),
-              // You might need to add other routes like forgot-password if you have them
             },
             onGenerateRoute: (settings) {
               return MaterialPageRoute(
@@ -140,51 +136,18 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// ⭐ UPDATE: Converted to StatefulWidget to manage state synchronization
-class AppRouter extends StatefulWidget {
+class AppRouter extends StatelessWidget {
   const AppRouter({super.key});
-
-  @override
-  State<AppRouter> createState() => _AppRouterState();
-}
-
-class _AppRouterState extends State<AppRouter> {
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _syncUserEmail();
-  }
-
-  void _syncUserEmail() {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final settingsProvider =
-        Provider.of<SettingsProvider>(context, listen: false);
-    final periodProvider = Provider.of<PeriodProvider>(context, listen: false);
-
-    final user = authProvider.currentUser;
-    final storedEmail = settingsProvider.settings.userEmail;
-
-    if (user != null && user.email != null && user.email != storedEmail) {
-      debugPrint('[AppRouter] Syncing user email: ${user.email}');
-
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        await settingsProvider.updateUserEmail(user.email!);
-
-        // Initialize period provider with user email
-        await periodProvider.init(userEmail: user.email);
-      });
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, _) {
-        if (authProvider.isLoading) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
+        // if (authProvider.isLoading) {
+        //   return const Scaffold(
+        //     body: Center(child: CircularProgressIndicator()),
+        //   );
+        // }
 
         if (authProvider.isAuthenticated) {
           if (!authProvider.isEmailVerified) {
@@ -201,7 +164,6 @@ class _AppRouterState extends State<AppRouter> {
   }
 }
 
-// No changes needed for MainScreen
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
